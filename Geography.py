@@ -1,9 +1,10 @@
 #-*- coding:utf8 -*-
-from noise import pnoise2,pnoise3
+
 import numpy  as np
-from  numpy import sin,cos,arccos,arcsin,sqrt
 import pandas as pd
 import random
+from  numpy import sin,cos,arccos,arcsin,sqrt
+from noise import pnoise2,pnoise3
 
 def timer(func):
     import datetime

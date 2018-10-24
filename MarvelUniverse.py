@@ -42,48 +42,9 @@ class Universe:
 class Universe_unit:
     angel = 2 * math.pi/2000  # 单位弧度
     time = 0.5  # 单位day
-    mass = 0.5  # 单位kg
-    energy = 1  # 单位kJ
-    AU = 1.5e8  # 单位km
 
 unit=Universe_unit()
 
-class Universe_law:
-    def __init__(self, gravity_constant=9.8):
-        self.gravity_constant = gravity_constant
-
-    '''引力'''
-    def gravity(self, mass):
-        gravity = mass * self.gravity_constant
-
-    '''摩擦力'''
-    def friction(self, mass, coefficient):
-        friction = mass * coefficient * self.gravity_constant
-
-    '''温度'''
-    def temperature(self, photon):
-        temperature = photon.density * photon.energy
-
-    '''第二定律'''
-    def second_law(self, force,mass):
-        a=force/mass
-
-    '''运动方程'''
-    def motion(self, x0, y0, t0, t, speed=[0, 0]):
-        X = x0 + speed[0] * (t - t0)
-        Y = y0 + speed[1] * (t - t0)
-
-    '''做功与能量'''
-    def work(self,force,dist):
-        energy=force*dist
-
-    '''动量守恒'''
-    def momentum(self,mass,speed):
-        momentum=mass*speed
-        #velocity
-    '''熵增加定律'''
-
-newton_law=Universe_law()
 
 
 class photon:
@@ -133,7 +94,6 @@ class Planet:
     def rain(self):
         pass
 
-#--------------------atom
 
 #--------------------molecule
 #光合作用
@@ -309,6 +269,3 @@ earth.distance([0,1],[0,1],radius=1)
 # mountains
 # badlands
 # river valleys
-
-
-
