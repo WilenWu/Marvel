@@ -297,12 +297,14 @@ class Molecule:
 
         return bonds,bonds_energy
 
+class Compound(Molecule):
     def ionization(self):
         '电离'
         pass
 
     def physical_properties(self):
         MOLECULE_TABLE.loc[self.formula, 'melting_point':]
+
 
 # chemical bond: ionic bond,covalent bond and metallic bond
 CHEMICAL_BOND=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_bond')
