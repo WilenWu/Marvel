@@ -5,9 +5,9 @@ import numpy as np
 
 from Marvel import Science
 from scipy import constants
-import math
-PI=constants.pi
+from Marvel.Science import UNITS
 
+UNITS.load_unit('ATP', 30.54, kJ=1, mol=-1)
 # #--------------------细胞结构
 # 细胞壁
 # 纤维素+果胶

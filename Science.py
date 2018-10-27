@@ -3,9 +3,8 @@
 import pandas as pd
 import numpy as np
 
-from scipy import constants
+from scipy import constants,linalg
 from sympy import symbols
-import math
 from math import pi,e,exp
 
 # System International(SI)
@@ -150,7 +149,6 @@ class units:
 
 
 UNITS=units()
-# UNITS.load_unit('ATP', 30.54, kJ=1, mol=-1)
 
 #-----------------subatomic particles
 
@@ -230,7 +228,7 @@ antiATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron'],anti=True)
 class Molecule:
     def __init__(self,formula,ionic_electron=0,anti=False):
         '''
-        :param atoms: int
+        :param formula: int
         :param ionic_electron: int
         '''
         self.formula=formula
@@ -297,15 +295,6 @@ class Molecule:
 
         return bonds,bonds_energy
 
-class Compound(Molecule):
-    def ionization(self):
-        '电离'
-        pass
-
-    def physical_properties(self):
-        MOLECULE_TABLE.loc[self.formula, 'melting_point':]
-
-
 # chemical bond: ionic bond,covalent bond and metallic bond
 CHEMICAL_BOND=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_bond')
 CHEMICAL_BOND.set_index(keys='bond', inplace=True)
@@ -317,12 +306,212 @@ MOLECULE_TABLE.set_index(keys='formula', inplace=True)
 MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
 antiMOLECULES=MOLECULE_TABLE.index.to_series().map(lambda x:Molecule(x,anti=True))
 
+# -------------------------------matter
+class PureSubstance:
+    '''
+     PureSubstance: Compound and Elementary Substance
+     molecule:  molecule
+     temp: ℃
+     amount of substance: mol
+    '''
+    def __init__(self,molecule,amount_of_substance,temp=15,volume=None):
+
+        self.molecule=molecule
+        self.name=self.molecule.name
+        self.anti=self.molecule.anti
+        self.molecular_formula=self.molecule.formula
+        self.amount_of_substance=amount_of_substance
+
+        self.relative_molecular_mass=self.molecule.mass
+        self.mass=self.molecule.mass*self.amount_of_substance*1e-3   #kg
+        self.charge=self.self.molecule.charge*self.amount_of_substance*constants.e   # C
+
+        self.volume=volume
+        self.density=self.mass/self.volume
+
+        self.__set_temp(temp)
+        self.state=self.get_state()
+        self.melting_point=self.physical_property('melting_point')  #熔点
+        self.boiling_point=self.physical_property('boiling_point')  #沸点
+        self.solubility=self.physical_property('solubility')  #溶解度(g/100g H2O)
+        self.SHC=self.physical_property('specific_heat_capacity')  #比热容
+        self.ionization_constant=self.physical_property('ionization_constant')  #电离平衡常数
+
+    def __set_temp(self,temp):
+        self.Temp=temp+273.15
+        self.degree_Kelvin=self.Temp
+        self.degree_Celsius=temp
+
+    def physical_property(self,property):
+        'get physical properties'
+        return MOLECULE_TABLE.loc[self.molecular_formula, property]
+
+    def get_state(self):
+        '''There are four states of matter: solid,liquid and gas'''
+        temp=self.degree_Celsius
+        if temp<=self.melting_point:
+            state='solid'
+        elif temp<=self.boiling_point:
+            state='liquid'
+        elif temp>self.boiling_point:
+            state='gas'
+        else:
+            state=None
+        return state
+
+    def heat_transfer(self,heat):
+        SHC=self.SHC
+        delta_t=heat/(SHC*self.mass)
+        self.__set_temp(self.degree_Celsius+delta_t)
+        self.state=self.get_state()  # phase transition(相变)
+
+    def materia_exchange(self,mass=None,mol=None):
+        mass=mass if mass else mol*self.relative_molecular_mass*1e-3
+        self.mass+=mass
+        self.density=self.mass/self.volume
+
+    def diffusion(self,volume):
+        if self.state=='gas':
+            self.volume=Volume
+            self.density=self.mass/self.volume
+
+ElementarySubstance=PureSubstance  #单质
+Compound=PureSubstance  # 化合物
+
+class Matter:
+    def __init__(self,volume,*composition):
+        self.composition={i.molecular_formula:i for i in composition}
+        self.mass,self.charge=self.get_mass_charge()
+        self.mass_percent={i:j.mass/self.mass for i,j in self.composition.iterms()}
+
+        self.__temp_init()
+        self.__physics_init() #溶解，电离等
+
+        self.AqueousSolution
+        self.SHC=self.get_SHC()  #混合比热容
+
+    def __temp_init(self):
+        '''
+        linalg matrix:
+        SHC*mass*temp-Q1=SHC*mass*t0
+        Q1+Q2+Q3+...=0
+        temp,Q1,Q2,Q3...,SHC*mass*t0
+        '''
+        num=len(self.composition)
+        a=np.zeros((num+1,num+1))
+        b=np.zeros((num+1,1))
+
+        '系数矩阵'
+        a[:-1,1:]=np.eye(num)*(-1)
+        a[num,1:]=1
+        a[num,0]=0
+        a[:num,0]=[i.SHC*i.mass for i in self.composition.values]
+        b[:num]=[i.SHC*i.mass*i.degree_Celsius for i in self.composition.values]
+        b[num]=0
+
+        temp=linalg.solve(a,b)[0]
+        self.Temp=temp+273.15
+        self.degree_Kelvin=self.Temp
+        self.degree_Celsius=temp
+
+    def __physics__init(self):
+        pass
+
+    def get_mass_charge(self):
+        mass=charge=0
+        for i in self.composition.values:
+            mass+=i.mass
+            charge+=i.charge
+        return mass,charge
+
+    def ionization(self,concentration,solvent='H2O'):
+        -----------rR=nM{m+}+mN{n-}
+        离子积常数是化学平衡常数的一种形式，多用于纯液体和难溶电解质的电离
+        K=[M{m+}]**n*[N{n-}]**m
+        Kw=[H{+}]*[OH{-}]=1e-14 mol/L
+        pH=-log[H+]
+        K: ion product(离子积), Kw: 水的离子积
+
+        Ka=[M{m+}]**n*[N{n-}]**m/[R]**r
+        pKa=-logKa
+        Ka: ionization constant(电离平衡常数)
+
+
+
+
+        def energy_exchange(self):
+            pass
+        def materia_exchange(self):
+            pass
+
+        def heat_transfer(self,heat):
+            heat=SHC*Mass*Temp
+
+        def diffusion(self):
+            pass
+
+        def pressure(self):
+            return n*R*T/v
+
+        def __reaction_rate(T,environment):
+            c={}
+            power_total=0
+            for k in CHEMICAL_REACTION.index:
+                reaction=CHEMICAL_REACTION.loc[k,'Chemical_reaction']
+                reactant,product=reaction.reactant,reaction.product
+                v=reaction.rate_equation(T,environment)
+                power=reaction.Qp*v
+                power_total+=power
+                for i,j in reacant.iterms():
+                    c[i]=c.get(i,0)-v*j
+                for i,j in product.iterms():
+                    c[i]=c.get(i,0)+v*j
+            return c,power_total
+
+        def reaction(reaction_rate,Δt,Accuracy=1,energy_conversion_efficiency=0.8,**environment):
+            energy=0
+            env=environment
+            for m in range(0,dt,Δt):
+                rate,power=reaction_rate(T,env)
+                t=dt if Δt-m>=dt else Δt-m
+                Q=power*t
+                energy+=Q
+                for i,j in rate.iterms():
+                    env[i]=env.get(i,0)+j*t
+            return env,energy
+
+        def chemical_equilibrium(self):
+            '化学平衡'
+            pass
+
+        def ionization(self):
+            '电离'
+            pass
+
+        def ion_balance(self):
+            '离子平衡'
+            pass
+
+        def annihilate(self,others):
+            '湮灭'
+            if (not self.anti)==others.anti:
+                Δm=math.abs(self.mass-others.mass)
+                E=2*Δm*constants.c**2
+                return 2*Δm,E
+
+        def physical_law(self,law):
+            '物理定律接口'
+            pass
+
+
+class AqueousSolution(Matter):
+    pass
 #----------------Chemical_reaction
 THEORY={}
 THEORY['chemical']=r'''
 化学反应的本质是旧化学键断裂和新化学键形成的过程
 chemical equation:
-s: solid(固体), l: liquid(液体), g: gas(气体), aq: Aqueous solution(水溶液)
+s: solid(固体), l: liquid(液体), g: gas(气体), aq: Aqueous solution(溶液)
 
 反应是否进行由体系的吉布斯自由能(Gibbs free energy)变化确定
 反应热(reaction heat)为吸热或放热反应，完全由体系的反应焓变(reaction enthalpies)决定
@@ -422,7 +611,7 @@ class ChemicalReaction:
 
         aA+bB=cC+dD
 
-        v = k*[A]**a*[B]**bs
+        v = k*[A]**a*[B]**b
         Arrhenius equation： k = A*exp(-Ea/(RT))
         Energy Units	 	kJ	 	Molecular Units	 	Molecule
         Pressure Units	 	Pa	 	Temperature Units	 	K
@@ -465,97 +654,6 @@ CHEMICAL_REACTION.set_index(keys='equation', inplace=True)
 CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(Chemical_reaction)
 
 #--------------------------- matter
-class Matter:
-    def __init__(self,temp,state,anti=False,**composition):
-        '''
-        temp: ℃
-        composition: mol/L
-        state:solid, liquid, gas, plasa
-        '''
-        self.Temp=temp+273.15
-        self.degree_Kelvin=self.Temp
-        self.degree_Celsius=temp
-
-        self.state=self.get_state()
-        self.composition=composition
-        composition=pd.DataFrame(composition).T
-        composition.columns='amount'
-        composition.merge(MOLECULE_TABLE,inplace=True)
-        self.mass=composition.mass*composition.amount
-        self.charge=composition.charge*composition.amount
-        self.volume
-        self.density
-
-    def get_state(self):
-        '''There are four states of matter: solid,liquid and gas'''
-        temp=self.degree_Celsius
-    def phase_transition(self):
-        '相变'
-        pass
-
-    def energy_exchange(self):
-        pass
-    def materia_exchange(self):
-        pass
-
-    def heat_transfer(self,heat):
-        heat=SHC*Mass*Temp
-
-    def diffusion(self):
-        pass
-
-    def pressure(self):
-        return n*R*T/v
-
-    def __reaction_rate(T,environment):
-        c={}
-        power_total=0
-        for k in CHEMICAL_REACTION.index:
-            reaction=CHEMICAL_REACTION.loc[k,'Chemical_reaction']
-            reactant,product=reaction.reactant,reaction.product
-            v=reaction.rate_equation(T,environment)
-            power=reaction.Qp*v
-            power_total+=power
-            for i,j in reacant.iterms():
-                c[i]=c.get(i,0)-v*j
-            for i,j in product.iterms():
-                c[i]=c.get(i,0)+v*j
-        return c,power_total
-
-    def reaction(reaction_rate,Δt,Accuracy=1,energy_conversion_efficiency=0.8,**environment):
-        energy=0
-        env=environment
-        for m in range(0,dt,Δt):
-            rate,power=reaction_rate(T,env)
-            t=dt if Δt-m>=dt else Δt-m
-            Q=power*t
-            energy+=Q
-            for i,j in rate.iterms():
-                env[i]=env.get(i,0)+j*t
-        return env,energy
-
-    def chemical_equilibrium(self):
-        '化学平衡'
-        pass
-
-    def ionization(self):
-        '电离'
-        pass
-
-    def ion_balance(self):
-        '离子平衡'
-        pass
-
-    def annihilate(self,others):
-        '湮灭'
-        if (not self.anti)==others.anti:
-            Δm=math.abs(self.mass-others.mass)
-            E=2*Δm*constants.c**2
-            return 2*Δm,E
-
-    def physical_law(self,law):
-        '物理定律接口'
-        pass
 
 #-----------------Physical law
 THEORY['physical']=r'''

@@ -6,6 +6,11 @@ import random
 from  numpy import sin,cos,arccos,arcsin,sqrt
 from noise import pnoise2,pnoise3
 
+
+class cube:
+    pass
+
+    
 def timer(func):
     import datetime
     from functools import wraps
