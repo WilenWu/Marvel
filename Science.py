@@ -156,16 +156,22 @@ class Electron:
     def __init__(self,anti=False):
         self.charge=1 if anti else -1
         self.mass=constants.m_e/constants.atomic_mass
+    def __str__(self):
+        return 'Electron'
 
 class Proton:
     def __init__(self, anti=False):
         self.charge = -1 if anti else 1
         self.mass=constants.m_p/constants.atomic_mass
+    def __str__(self):
+        return 'Proton'
 
 class Neutron:
     def __init__(self, anti=False):
         self.charge=0
         self.mass=constants.m_u/constants.atomic_mass
+    def __str__(self):
+        return 'Neutron'
 
 class Photon:
     def __init__(self,frequency):
@@ -180,6 +186,9 @@ class Photon:
         self.λ=self.wavelength
         self.E=self.energy
         self.h=self.momentum
+
+    def __str__(self):
+        return 'Photon'
 
 class Field:
     pass
@@ -216,6 +225,9 @@ class Atom:
     def nuclear_reaction():
         'fission and fusion(裂变和聚变)'
         pass
+
+    def __str__(self):
+        return 'Atom({p},{n})'.format(p=self.protons,n=self.neutrons)
 
 
 #----------------periodic_table
@@ -292,8 +304,10 @@ class Molecule:
         bonds_energy=0
         for i in bonds:
             bonds_energy+=CHEMICAL_BOND.loc[i,'energy(KJ/mol)']*bonds[i]
-
         return bonds,bonds_energy
+
+    def __str__(self):
+        return 'Molecule({})'.format(self.formula)
 
 # chemical bond: ionic bond,covalent bond and metallic bond
 CHEMICAL_BOND=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_bond')
@@ -306,7 +320,7 @@ MOLECULE_TABLE.set_index(keys='formula', inplace=True)
 MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
 antiMOLECULES=MOLECULE_TABLE.index.to_series().map(lambda x:Molecule(x,anti=True))
 
-# -------------------------------matter
+# -------------------------------Pure Substance
 class PureSubstance:
     '''
      PureSubstance: Compound and Elementary Substance
@@ -314,30 +328,31 @@ class PureSubstance:
      temp: ℃
      amount of substance: mol
     '''
-    def __init__(self,molecule,amount_of_substance,temp=15,volume=None):
+    def __init__(self,molecule,mass,volume=None,temp=15):
 
         self.molecule=molecule
         self.name=self.molecule.name
         self.anti=self.molecule.anti
         self.molecular_formula=self.molecule.formula
-        self.amount_of_substance=amount_of_substance
-
         self.relative_molecular_mass=self.molecule.mass
-        self.mass=self.molecule.mass*self.amount_of_substance*1e-3   #kg
+        self.mass=mass  #kg
+        self.amount_of_substance=self.mass*1000/self.relative_molecular_mass  #mol
         self.charge=self.self.molecule.charge*self.amount_of_substance*constants.e   # C
 
-        self.volume=volume
+        self.volume=volume  # cubic meter
         self.density=self.mass/self.volume
+        self.pressure=self.get_pressure()
 
-        self.__set_temp(temp)
+        self.set_temp(temp)
         self.state=self.get_state()
         self.melting_point=self.physical_property('melting_point')  #熔点
         self.boiling_point=self.physical_property('boiling_point')  #沸点
         self.solubility=self.physical_property('solubility')  #溶解度(g/100g H2O)
         self.SHC=self.physical_property('specific_heat_capacity')  #比热容
         self.ionization_constant=self.physical_property('ionization_constant')  #电离平衡常数
+        self.ionization=self.physical_property('ionization') #离子集合
 
-    def __set_temp(self,temp):
+    def set_temp(self,temp):
         self.Temp=temp+273.15
         self.degree_Kelvin=self.Temp
         self.degree_Celsius=temp
@@ -362,7 +377,7 @@ class PureSubstance:
     def heat_transfer(self,heat):
         SHC=self.SHC
         delta_t=heat/(SHC*self.mass)
-        self.__set_temp(self.degree_Celsius+delta_t)
+        self.set_temp(self.degree_Celsius+delta_t)
         self.state=self.get_state()  # phase transition(相变)
 
     def materia_exchange(self,mass=None,mol=None):
@@ -370,38 +385,200 @@ class PureSubstance:
         self.mass+=mass
         self.density=self.mass/self.volume
 
+    def solubility(self,solvent):
+        '溶解'
+        s=self.solubility/100*solvent.mass
+        mass=self.mass if s>=self.mass else s
+        return mass
+
     def diffusion(self,volume):
         if self.state=='gas':
-            self.volume=Volume
+            self.volume=volume
             self.density=self.mass/self.volume
+            self.pressure=self.get_pressure()
 
-ElementarySubstance=PureSubstance  #单质
-Compound=PureSubstance  # 化合物
+    def get_pressure(self):
+        if self.volume is not None and self.state=='gas':
+            return self.amount_of_substance*constants.gas_constant*self.degree_Kelvin/self.volume
 
+    def annihilate(self,others):
+        '湮灭'
+        if (not self.anti)==others.anti:
+            Δm=math.abs(self.mass-others.mass)
+            E=2*Δm*constants.c**2
+            return 2*Δm,E
+
+    def __str__(self):
+        '显示单质或化合物'
+        name='Elementary Substance' if len(self.molecule.atoms)==1 else 'Compound'
+        return '{}:{}'.format(name,self.molecular_formula)
+
+    def __add__(self,other):
+        if type(self)==type(other) and self.molecular_formula==other.molecular_formula:
+            return PureSubstance(self.molecule,self.mass+other.mass,self.volume+other.volume)
+
+
+#----------------Chemical_reaction
+class ChemicalReaction:
+    def __init__(self,equation):
+        self.equation=equation
+        self.reactant,self.product=self.get_stoichiometric_number()
+        self.A,self.Ea=CHEMICAL_REACTION.loc[equation,['pre-exponential factor','activation energy']]
+        self.enzyme=CHEMICAL_REACTION.loc[equation,'enzyme']
+
+        self.reaction_enthalpies=self.reaction_enthalpies()
+        self.ΔrHmΘ=self.reaction_enthalpies
+        self.reaction_heat=self.reaction_enthalpies
+        self.Qp=self.reaction_heat
+
+    def get_stoichiometric_number(self):
+        equation=self.equation
+        def equation_split(x):
+            y={}
+            for m in x.split('+'):
+                if m.find('*')>=0:
+                    value,key=m.split('*')
+                    y[key]=int(value)
+                else:
+                    y[m]=1
+            return y
+
+        reacant,product=equation.split('=')
+        return equation_split(reacant),equation_split(product)
+
+    def reaction_enthalpies(self):
+        equation=self.equation
+        def bold_energy(molecule_dict):
+            bold_energy=0.0
+            for i in molecule_dict:
+                bold_energy+=MOLECULES[i].bond_energy*molecule_dict[i]
+            return bold_energy
+
+        return bold_energy(self.reactant)-bold_energy(self.product)
+
+    def rate_equation(self,Temp,**concentration):
+        '''
+        molecules,atoms or ions : float(mol/L), cover catalyst(催化剂),enzyme(酶),etc
+
+        aA+bB=cC+dD
+        v = k*[A]**a*[B]**b
+        Arrhenius equation： k = A*exp(-Ea/(RT))
+        Energy Units	 	kJ	 	Molecular Units	 	Molecule
+        Pressure Units	 	Pa	 	Temperature Units	 	K
+        Base Volume Unit	cm
+
+        Enzyme catalysis(酶促反应)
+        Michaelis-Menten equation：
+        v = Vmax[S]/(Km+[S])
+        [S]: substrate concentration
+        Soil enzyme activity was mostly affected by substrate concentration
+        '''
+        R=constants.gas_constant*0.001
+        c={i:j*0.001 for i,j in concentration.items()}
+        A,Ea=self.A,self.Ea
+        k = A*np.exp(-Ea/(R*Temp))
+        tmp=1
+        for i,j in self.reactant.iterms():
+            tmp*=c.get(i,0)**j
+        v=k*tmp
+
+        # 催化部分
+        if (self.enzyme is not None) and (c.get(enzyme['enzyme'],0)>0):
+            enzyme=self.enzyme
+            relative_conc=[c.get(i,0)/j for i,j in self.reactant.items()] #相对浓度
+            s=min(relative_conc) #底物浓度
+            saturation=c.get(enzyme['enzyme'],0)/s*50  #相对饱和度
+            saturation=1 if saturation>=1 else saturation
+            Ve=enzyme['Vmax']*s/(enzyme['Km']+s)
+
+            v=(Ve-v)*saturation+v
+
+        return v*1000 # mol/(L*s)
+
+
+#list of reactions
+CHEMICAL_REACTION=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_equation')
+CHEMICAL_REACTION.loc[:,'enzyme']=CHEMICAL_REACTION.loc[:,'enzyme'].map(eval)
+CHEMICAL_REACTION.set_index(keys='equation', inplace=True)
+
+CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(Chemical_reaction)
+
+#-----------------Physical law
+
+class PhysicalLaw:
+    '''
+    物理定律接口
+    '''
+    def __init__(self):
+        pass
+
+class NewtonLaw(Physical_law):
+    def gravity(self, mass):
+        gravity = mass * self.gravity_constant
+
+    def first_law(self):
+        pass
+
+    def second_law(self,force=None,mass=None,a=None):
+        force=mass*a
+
+    def third_law(self, force,):
+        force=-force
+
+    def motion(self, x0, y0, t0, t, speed=[0, 0]):
+        X = x0 + speed[0] * (t - t0)
+        Y = y0 + speed[1] * (t - t0)
+
+    def friction(self, mass, coefficient):
+        '''摩擦力'''
+        friction = mass * coefficient * self.gravity_constant
+
+'''温度'''
+def temperature(self, photon):
+    temperature = photon.density * photon.energy
+
+
+class ThermodynamicLaw(hysical_law):
+    def energy_conservation(self):
+        dQ=dU+pdV
+
+    '''做功与能量'''
+    def work(self,force,dist):
+        energy=force*dist
+
+    '''动量守恒'''
+    def momentum(self,mass,speed):
+        momentum=mass*speed
+        #velocity
+    '''熵增加定律'''
+
+
+#-----------------------------------Mixture
 class Matter:
     def __init__(self,volume,*composition):
         self.composition={i.molecular_formula:i for i in composition}
         self.mass,self.charge=self.get_mass_charge()
         self.mass_percent={i:j.mass/self.mass for i,j in self.composition.iterms()}
-
-        self.__temp_init()
-        self.__physics_init() #溶解，电离等
-
-        self.AqueousSolution
-        self.SHC=self.get_SHC()  #混合比热容
+        self.diffusion()
 
     def __temp_init(self):
         '''
         linalg matrix:
-        SHC*mass*temp-Q1=SHC*mass*t0
+        SHC*mass*temp-Q=SHC*mass*t0
         Q1+Q2+Q3+...=0
-        temp,Q1,Q2,Q3...,SHC*mass*t0
+
+        系数矩阵
+        [       a             ]      b
+        temp         Q1  Q2  Q3  SHC*mass*t0
+        SHC1*mass1   -1   0   0  SHC1*mass1*t0
+        SHC2*mass2   0   -1   0  SHC2*mass2*t0
+        SHC3*mass3   0   0   -1  SHC3*mass3*t0
+            0        1    1   1       0
         '''
         num=len(self.composition)
         a=np.zeros((num+1,num+1))
         b=np.zeros((num+1,1))
 
-        '系数矩阵'
         a[:-1,1:]=np.eye(num)*(-1)
         a[num,1:]=1
         a[num,0]=0
@@ -410,12 +587,13 @@ class Matter:
         b[num]=0
 
         temp=linalg.solve(a,b)[0]
+        self.set_temp(temp)
+        for i in self.composition.values:
+            i.set_temp(temp)
+    def set_temp(self,temp):
         self.Temp=temp+273.15
         self.degree_Kelvin=self.Temp
         self.degree_Celsius=temp
-
-    def __physics__init(self):
-        pass
 
     def get_mass_charge(self):
         mass=charge=0
@@ -424,91 +602,89 @@ class Matter:
             charge+=i.charge
         return mass,charge
 
-    def ionization(self,concentration,solvent='H2O'):
-        -----------rR=nM{m+}+mN{n-}
-        离子积常数是化学平衡常数的一种形式，多用于纯液体和难溶电解质的电离
-        K=[M{m+}]**n*[N{n-}]**m
-        Kw=[H{+}]*[OH{-}]=1e-14 mol/L
-        pH=-log[H+]
-        K: ion product(离子积), Kw: 水的离子积
+    def solubility(self):
+        '溶解'
+        solvent=self.composition.get('H2O',None)
+        solute={}
+        if self.solvent is not None:
+            for i,j in self.composition.iterms():
+                solute[i]=j.solubility(solvent)
+        return solvent,solute
 
-        Ka=[M{m+}]**n*[N{n-}]**m/[R]**r
-        pKa=-logKa
-        Ka: ionization constant(电离平衡常数)
+    def diffusion(self):
+        '扩散'
+        residual_volume=self.volume-sum([i.volume for i in self.composition.values if i.state!='gas'])
+        for i in self.composition.values:
+            i.diffusion(residual_volume)
 
+    def get_ions(self):
+        ions={}
+        if self.composition.get('H2O',None) is not None:
+            for i in self.composition.values
+                ions.update(i.ionization)
+        return ions
 
+    def get_SHC(self,heat):
+        '''
+        精简计算混合比热容
+        Q=CmΔt
+        '''
+        Q=0
+        for i in self.composition.values:
+            Q+=i.SHC*i.mass*1
+        return Q/self.mass
 
+    def heat_transfer(self,heat):
+        SHC=self.get_SHC()
+        delta_t=heat/(SHC*self.mass)
+        self.set_temp(self.degree_Celsius+delta_t)
+        for i in self.composition.values:
+            i.set_temp(i.degree_Celsius+delta_t)
+            i.state=i.get_state()
 
-        def energy_exchange(self):
-            pass
-        def materia_exchange(self):
-            pass
+    def energy_exchange(self,heat):
+        '包括热传递和其他反应'
+        pass
 
-        def heat_transfer(self,heat):
-            heat=SHC*Mass*Temp
-
-        def diffusion(self):
-            pass
-
-        def pressure(self):
-            return n*R*T/v
-
-        def __reaction_rate(T,environment):
-            c={}
-            power_total=0
-            for k in CHEMICAL_REACTION.index:
-                reaction=CHEMICAL_REACTION.loc[k,'Chemical_reaction']
-                reactant,product=reaction.reactant,reaction.product
-                v=reaction.rate_equation(T,environment)
-                power=reaction.Qp*v
-                power_total+=power
-                for i,j in reacant.iterms():
-                    c[i]=c.get(i,0)-v*j
-                for i,j in product.iterms():
-                    c[i]=c.get(i,0)+v*j
-            return c,power_total
-
-        def reaction(reaction_rate,Δt,Accuracy=1,energy_conversion_efficiency=0.8,**environment):
-            energy=0
-            env=environment
-            for m in range(0,dt,Δt):
-                rate,power=reaction_rate(T,env)
-                t=dt if Δt-m>=dt else Δt-m
-                Q=power*t
-                energy+=Q
-                for i,j in rate.iterms():
-                    env[i]=env.get(i,0)+j*t
-            return env,energy
-
-        def chemical_equilibrium(self):
-            '化学平衡'
-            pass
-
-        def ionization(self):
-            '电离'
-            pass
-
-        def ion_balance(self):
-            '离子平衡'
-            pass
-
-        def annihilate(self,others):
-            '湮灭'
-            if (not self.anti)==others.anti:
-                Δm=math.abs(self.mass-others.mass)
-                E=2*Δm*constants.c**2
-                return 2*Δm,E
-
-        def physical_law(self,law):
-            '物理定律接口'
-            pass
+    def materia_exchange(self):
+        pass
 
 
-class AqueousSolution(Matter):
-    pass
-#----------------Chemical_reaction
+    def __reaction_rate(T,environment):
+        c={}
+        power_total=0
+        for k in CHEMICAL_REACTION.index:
+            reaction=CHEMICAL_REACTION.loc[k,'Chemical_reaction']
+            reactant,product=reaction.reactant,reaction.product
+            v=reaction.rate_equation(T,environment)
+            power=reaction.Qp*v
+            power_total+=power
+            for i,j in reacant.iterms():
+                c[i]=c.get(i,0)-v*j
+            for i,j in product.iterms():
+                c[i]=c.get(i,0)+v*j
+        return c,power_total
+
+    def reaction(reaction_rate,Δt,Accuracy=1,energy_conversion_efficiency=0.8,**environment):
+        energy=0
+        env=environment
+        for m in range(0,dt,Δt):
+            rate,power=reaction_rate(T,env)
+            t=dt if Δt-m>=dt else Δt-m
+            Q=power*t
+            energy+=Q
+            for i,j in rate.iterms():
+                env[i]=env.get(i,0)+j*t
+        return env,energy
+
+    def physical_law(self,law):
+        '物理定律接口'
+        pass
+
+
+
 THEORY={}
-THEORY['chemical']=r'''
+THEORY['chemistry']=r'''
 化学反应的本质是旧化学键断裂和新化学键形成的过程
 chemical equation:
 s: solid(固体), l: liquid(液体), g: gas(气体), aq: Aqueous solution(溶液)
@@ -567,143 +743,7 @@ R: 摩尔气体常数(Molar gas constant), T: 开尔文温度(kelvin temperature
 energy
 
 '''
-
-class ChemicalReaction:
-    def __init__(self,equation):
-        self.equation=equation
-        self.reactant,self.product=self.get_stoichiometric_number()
-        self.A,self.Ea=CHEMICAL_REACTION.loc[equation,['pre-exponential factor','activation energy']]
-        self.enzyme=CHEMICAL_REACTION.loc[equation,'enzyme']
-
-        self.reaction_enthalpies=self.reaction_enthalpies()
-        self.ΔrHmΘ=self.reaction_enthalpies
-        self.reaction_heat=self.reaction_enthalpies
-        self.Qp=self.reaction_heat
-
-    def get_stoichiometric_number(self):
-        equation=self.equation
-        def equation_split(x):
-            y={}
-            for m in x.split('+'):
-                if m.find('*')>=0:
-                    value,key=m.split('*')
-                    y[key]=int(value)
-                else:
-                    y[m]=1
-            return y
-
-        reacant,product=equation.split('=')
-        return equation_split(reacant),equation_split(product)
-
-    def reaction_enthalpies(self):
-        equation=self.equation
-        def bold_energy(molecule_dict):
-            bold_energy=0.0
-            for i in molecule_dict:
-                bold_energy+=MOLECULES[i].bond_energy*molecule_dict[i]
-            return bold_energy
-
-        return bold_energy(self.reactant)-bold_energy(self.product)
-
-    def rate_equation(self,Temp,**concentration):
-        '''
-        molecules,atoms or ions : float(mol/L), cover catalyst(催化剂),enzyme(酶),etc
-
-        aA+bB=cC+dD
-
-        v = k*[A]**a*[B]**b
-        Arrhenius equation： k = A*exp(-Ea/(RT))
-        Energy Units	 	kJ	 	Molecular Units	 	Molecule
-        Pressure Units	 	Pa	 	Temperature Units	 	K
-        Base Volume Unit	cm
-
-        Enzyme catalysis(酶促反应)
-        Michaelis-Menten equation：
-        v = Vmax[S]/(Km+[S])
-        [S]: substrate concentration
-        Soil enzyme activity was mostly affected by substrate concentration
-        '''
-        R=constants.gas_constant*0.001
-        c={i:j*0.001 for i,j in concentration.items()}
-        A,Ea,order=self.A,self.Ea,self.reactant
-        k = A*np.exp(-Ea/(R*Temp))
-
-        # 催化
-        enzyme=self.enzyme
-        if len(enzyme)>=2:
-            enzyme,active=enzyme[:1]
-            Ea1=Ea/active
-            k1=A*exp(-Ea1/(R*Temp))
-
-            relative_conc=[c.get(i,0)/j for i,j in self.reactant.items()] #相对浓度
-            saturation=c.get(enzyme,0)/min(relative_conc)*100  #相对饱和度
-            k=atan(saturation)*2/pi*k1
-
-        v=1
-        for i in self.reactant:
-            v*=c.get(i,0)**order[i]
-
-        return k*v*1000 # mol/(L*s)
-
-
-#list of reactions
-CHEMICAL_REACTION=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_equation')
-CHEMICAL_REACTION.loc[:,'enzyme']=CHEMICAL_REACTION.loc[:,'enzyme'].map(eval)
-CHEMICAL_REACTION.set_index(keys='equation', inplace=True)
-
-CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(Chemical_reaction)
-
-#--------------------------- matter
-
-#-----------------Physical law
-THEORY['physical']=r'''
+THEORY['physics']=r'''
 physical constants:
 
 '''
-
-class PhysicalLaw:
-    '''
-    物理定律接口
-    '''
-    def __init__(self):
-        pass
-
-class NewtonLaw(Physical_law):
-    def gravity(self, mass):
-        gravity = mass * self.gravity_constant
-
-    def first_law(self):
-        pass
-
-    def second_law(self,force=None,mass=None,a=None):
-        force=mass*a
-
-    def third_law(self, force,):
-        force=-force
-
-    def motion(self, x0, y0, t0, t, speed=[0, 0]):
-        X = x0 + speed[0] * (t - t0)
-        Y = y0 + speed[1] * (t - t0)
-
-    def friction(self, mass, coefficient):
-        '''摩擦力'''
-        friction = mass * coefficient * self.gravity_constant
-
-'''温度'''
-def temperature(self, photon):
-    temperature = photon.density * photon.energy
-
-
-class ThermodynamicLaw(hysical_law):
-    def energy_conservation(self):
-        dQ=dU+pdV
-
-    '''做功与能量'''
-    def work(self,force,dist):
-        energy=force*dist
-
-    '''动量守恒'''
-    def momentum(self,mass,speed):
-        momentum=mass*speed
-        #velocity
-    '''熵增加定律'''
