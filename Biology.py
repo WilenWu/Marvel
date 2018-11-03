@@ -73,7 +73,7 @@ UNITS.load_unit('ATP', 30.54, kJ=1, mol=-1)
 # 细胞分化 cell differentiation
 # 细胞凋亡apoptosis
 #------------cell
-class Biomembrance:
+class Biomembrance(Matter):
     def __init__(self,radius):
         '''
         biomembrance thickness:8-10nm
@@ -164,7 +164,7 @@ class Cell:
         '胞间连丝'
         pass
 
-class CellWall:
+class CellWall(Matter):
     '''
     bacterial(细菌):peptidoglycan(肽聚糖)
     plant:cellulose,hemi-cellulose and lignin
@@ -181,7 +181,7 @@ class CellWall:
     def create(self):
         pass
 
-class Chloroplasts:
+class Chloroplasts(Matter):
     '''
     diameter:5-100um
     chlorophyl a(叶绿素a):C55H72O5N4Mg
