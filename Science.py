@@ -2,6 +2,7 @@
 
 import pandas as pd
 import numpy as np
+import re
 
 from scipy import constants,linalg
 from sympy import symbols
@@ -252,7 +253,6 @@ class Molecule:
 
     @staticmethod
     def get_atoms(formula):
-        import re
         def split_formula(formula):
             split_form = re.findall('[A-Z][a-z]?|\(.+\)|\d+', formula)
             atoms = {}
@@ -301,6 +301,8 @@ class Molecule:
 
     def get_bonds_energy(self):
         bonds=MOLECULE_TABLE.loc[self.formula,'bond']
+        if bonds is None:
+            return None,None
         bonds_energy=0
         for i in bonds:
             bonds_energy+=CHEMICAL_BOND.loc[i,'energy(KJ/mol)']*bonds[i]
@@ -311,10 +313,20 @@ class Molecule:
 
 # chemical bond: ionic bond,covalent bond and metallic bond
 CHEMICAL_BOND=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_bond')
+def __reverse(x):
+    if x in ['N-H..O','N..H-O']:
+        return None
+    else:
+        x=re.split('[-=3]',x)
+        x.reverse()
+        return '-'.join(x)
+__CB=CHEMICAL_BOND.copy()
+__CB['bond']=__CB['bond'].map(__reverse)
+CHEMICAL_BOND=CHEMICAL_BOND.append(__CB.dropna()).drop_duplicates()
 CHEMICAL_BOND.set_index(keys='bond', inplace=True)
 
 MOLECULE_TABLE=pd.read_excel('Marvel/Science.xlsx',sheet_name='molecule')
-MOLECULE_TABLE.loc[:,['bond','ionization']]=MOLECULE_TABLE.loc[:,['bond'],'ionization'].map(eval)
+MOLECULE_TABLE.loc[:,['bond','ionization']]=MOLECULE_TABLE.loc[:,['bond','ionization']].applymap(eval)
 MOLECULE_TABLE.replace('Inf', inf, inplace=True)
 MOLECULE_TABLE.set_index(keys='formula', inplace=True)
 
