@@ -7,9 +7,10 @@ import re
 from scipy import constants,linalg
 from sympy import symbols
 from math import pi,e,exp,inf
+from itertools import combinations,permutations,product
 
 # System International(SI)
-class units:
+class Units:
     'unit: a standard of measurement'
     base=pd.DataFrame(
        columns=['Unit','Symbol','Physical quantities'],
@@ -139,17 +140,19 @@ class units:
         self.load_unit('u', constants.atomic_mass,kg=1,description='Relative atomic mass')
         self.load_unit('eV', constants.eV, J=1,description='Electron-Volt')
         self.load_unit('e', constants.elementary_charge, C=1,description='electron charge')
-        self.load_unit('c', constants.c, m=1,s=-1,description='speed_of_light')
         self.load_unit('au', constants.au, m=1, description='astronomical_unit')
         self.load_unit('atm', constants.atm, Pa=1, description='standard atmosphere in pascals')
+        self.load_unit('cal', constants.calorie, J=1,description='calorie')
         self.load_prefix_unit(['km', 'dm','cm','mm', 'nm', 'μm'])
+        self.load_prefix_unit(['ms','μs', 'ns','kHz','MHz'])
 
         self.load_unit('L', dm=3)
-        self.load_unit('cal', constants.calorie, J=1)
-        self.load_prefix_unit(['kJ', 'kcal', 'kPa','kmol'])
+        self.load_prefix_unit(['mg','mL','kJ','kcal', 'kPa','MPa','kmol','kN'])
 
+    def __str__(self):
+        return 'Units'
 
-UNITS=units()
+UNITS=Units()
 
 #-----------------subatomic particles
 
@@ -189,7 +192,7 @@ class Photon:
         self.h=self.momentum
 
     def __str__(self):
-        return 'Photon'
+        return 'Photon(ν={})'.format(self.frequency)
 
 class Field:
     pass
@@ -223,7 +226,7 @@ class Atom:
 
         self.anti=anti
 
-    def nuclear_reaction():
+    def nuclear_reaction(self):
         'fission and fusion(裂变和聚变)'
         pass
 
@@ -239,16 +242,15 @@ antiATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron'],anti=True)
 
 #--------------------molecule
 class Molecule:
-    def __init__(self,formula,ionic_electron=0,anti=False):
+    def __init__(self,formula,anti=False):
         '''
-        :param formula: int
-        :param ionic_electron: int
+        :param formula: str
         '''
         self.formula=formula
         self.name=MOLECULE_TABLE.loc[self.formula, 'name']
         self.atoms=self.get_atoms(self.formula)
         self.anti=anti
-        self.mass,self.charge=self.get_mass_charge(ionic_electron)
+        self.mass,self.charge=self.get_mass_charge()
         self.chemical_bonds,self.bonds_energy=self.get_bonds_energy()  #kJ/mol
 
     @staticmethod
@@ -257,7 +259,7 @@ class Molecule:
             split_form = re.findall('[A-Z][a-z]?|\(.+\)|\d+', formula)
             atoms = {}
             for i, key in enumerate(split_form):
-                if key.isnumeric():
+                if key.isnumeric() or key in list('^+-'):
                     next
                 elif i + 1 == len(split_form):
                     atoms[key] = atoms.get(key, 0) + 1
@@ -311,6 +313,22 @@ class Molecule:
     def __str__(self):
         return 'Molecule({})'.format(self.formula)
 
+class Ion(Molecule):
+    def __init__(self,formula,anti=False):
+        '''
+        :param formula: str
+        '''
+        self.formula=formula
+        self.ionic_electron=__ionic_electron()
+        self.atoms=self.get_atoms(self.formula)
+        self.anti=anti
+        self.mass,self.charge=self.get_mass_charge(self.ionic_electron)
+    def __ionic_electron(self):
+        charge=re.findall('\^\d+[+-]|[+-]',self.formula)[0].replace('^','')
+        sign=-1 if charge[-1]=='+' else 1
+        n=1 if len(charge)==1 else int(charge[:-1])
+        return n*sign
+
 # chemical bond: ionic bond,covalent bond and metallic bond
 CHEMICAL_BOND=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_bond')
 def __reverse(x):
@@ -335,14 +353,14 @@ antiMOLECULES=MOLECULE_TABLE.index.to_series().map(lambda x:Molecule(x,anti=True
 
 # -------------------------------Pure Substance
 class PureSubstance:
-    '''
-     PureSubstance: Compound and Elementary Substance
-     molecule:  molecule
-     temp: ℃
-     amount of substance: mol
-    '''
-    def __init__(self,molecule,mass,volume=None,temp=15):
 
+    def __init__(self,molecule,mass,volume=None,temp=15):
+        '''
+         PureSubstance: Compound and Elementary Substance
+         :param molecule:  molecule
+         temp: ℃
+         amount of substance: mol
+        '''
         self.molecule=molecule
         self.name=self.molecule.name
         self.anti=self.molecule.anti
@@ -356,6 +374,7 @@ class PureSubstance:
 
         self.set_temp(temp)
         self.state=self.get_state()
+        self.standard_density=self.physical_property('standard density') #标准密度
         self.melting_point=self.physical_property('melting_point')  #熔点
         self.boiling_point=self.physical_property('boiling_point')  #沸点
         self.solubility=self.physical_property('solubility')  #溶解度(g/100g H2O)
@@ -370,7 +389,7 @@ class PureSubstance:
     def set_mass_charge(self,mass):
         self.mass=mass  #kg
         self.amount_of_substance=self.mass*1000/self.relative_molecular_mass  #mol
-        self.charge=self.self.molecule.charge*self.amount_of_substance*constants.e   # C
+        self.charge=self.molecule.charge*self.amount_of_substance*constants.e   # C
 
     def physical_property(self,property):
         'get physical properties'
@@ -499,7 +518,7 @@ class ChemicalReaction:
             A,Ea=self.A,self.Ea #kJ/mol
             k = A*np.exp(-Ea/(R*Temp))
             tmp=1
-            for i,j in self.reactant.iterms():
+            for i,j in self.reactant.items():
                 tmp*=c.get(i,0)**j
             v=k*tmp # mmol/(L*s)
             return v*1000 # mol/(L*s)
@@ -603,7 +622,7 @@ class Matter:
         '''
         self.composition={i.molecular_formula:i for i in composition}
         self.set_mass_charge()
-        self.mass_percent={i:j.mass/self.mass for i,j in self.composition.iterms()}
+        self.mass_percent={i:j.mass/self.mass for i,j in self.composition.items()}
         self.diffusion()
         self.volume=volume
 
@@ -655,7 +674,7 @@ class Matter:
         solvent=self.composition.get('H2O',None)
         solute={}
         if solvent is not None:
-            for i,j in self.composition.iterms():
+            for i,j in self.composition.items():
                 solute[i]=j.solubility(solvent)
         return solvent,solute
 
@@ -712,9 +731,9 @@ class Matter:
             v=reaction.rate_equation(T,env)
             power=reaction.Qp*v
             power_total+=power
-            for i,j in reacant.iterms():
+            for i,j in reacant.items():
                 rate[i]=rate.get(i,0)-v*j
-            for i,j in product.iterms():
+            for i,j in product.items():
                 rate[i]=rate.get(i,0)+v*j
         return rate,power_total
 
@@ -725,14 +744,14 @@ class Matter:
 
         for m in np.arange(0,Δt,dt):
             T=self.Temp
-            env={i:j.amount_of_substance/self.volume for i,j in self.composition.iterms()}
+            env={i:j.amount_of_substance/self.volume for i,j in self.composition.items()}
 
             rate,power=__reaction_rate(T,env)
             t=dt if Δt-m>=dt else Δt-m
             Q=power*t
             energy+=Q
 
-            p=[PureSubstance(i,MOLECULES[i].mass*j*1e-3) for i,j in rate.iterms()]
+            p=[PureSubstance(i,MOLECULES[i].mass*j*1e-3) for i,j in rate.items()]
         return p,energy
 
     def physical_law(self,law):
