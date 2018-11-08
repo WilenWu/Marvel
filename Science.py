@@ -306,12 +306,12 @@ class Molecule:
         if bonds is None:
             return None,None
         bonds_energy=0
-        for i in bonds:
-            bonds_energy+=CHEMICAL_BOND.loc[i,'energy(KJ/mol)']*bonds[i]
+        for i,j in bonds.items():
+            bonds_energy+=CHEMICAL_BOND[i]*j
         return bonds,bonds_energy
 
     def __str__(self):
-        return 'Molecule({})'.format(self.formula)
+        return "Molecule('{}')".format(self.formula)
 
 class Ion(Molecule):
     def __init__(self,formula,anti=False):
@@ -319,7 +319,7 @@ class Ion(Molecule):
         :param formula: str
         '''
         self.formula=formula
-        self.ionic_electron=__ionic_electron()
+        self.ionic_electron=self.__ionic_electron()
         self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge(self.ionic_electron)
@@ -335,13 +335,13 @@ def __reverse(x):
     if x in ['N-H..O','N..H-O']:
         return None
     else:
-        x=re.split('[-=3]',x)
+        x=re.findall('[A-Z][a-z]?|[-=Ξ]',x)
         x.reverse()
-        return '-'.join(x)
+        return ''.join(x)
 __CB=CHEMICAL_BOND.copy()
 __CB['bond']=__CB['bond'].map(__reverse)
 CHEMICAL_BOND=CHEMICAL_BOND.append(__CB.dropna()).drop_duplicates()
-CHEMICAL_BOND.set_index(keys='bond', inplace=True)
+CHEMICAL_BOND=pd.Series(CHEMICAL_BOND['energy(KJ/mol)'].values,index=CHEMICAL_BOND['bond'])
 
 MOLECULE_TABLE=pd.read_excel('Marvel/Science.xlsx',sheet_name='molecule')
 MOLECULE_TABLE.loc[:,['bond','ionization']]=MOLECULE_TABLE.loc[:,['bond','ionization']].applymap(eval)
@@ -350,6 +350,112 @@ MOLECULE_TABLE.set_index(keys='formula', inplace=True)
 
 MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
 antiMOLECULES=MOLECULE_TABLE.index.to_series().map(lambda x:Molecule(x,anti=True))
+
+#-----------------Physical law
+
+class PhysicalLaw:
+    '''
+    物理定律接口
+    '''
+    def __init__(self):
+        pass
+
+class NewtonLaw(PhysicalLaw):
+
+    @classmethod
+    def gravity(self, mass):
+        gravity = mass * self.gravity_constant
+
+    @classmethod
+    def first_law(self):
+        pass
+
+    @classmethod
+    def second_law(self,force=None,mass=None,a=None):
+        force=mass*a
+
+    @classmethod
+    def third_law(self, force,):
+        force=-force
+
+    @classmethod
+    def motion(self, x0, y0, t0, t, speed=[0, 0]):
+        X = x0 + speed[0] * (t - t0)
+        Y = y0 + speed[1] * (t - t0)
+
+    @classmethod
+    def friction(self, mass, coefficient):
+        '''摩擦力'''
+        friction = mass * coefficient * self.gravity_constant
+
+class ThermodynamicLaw(PhysicalLaw):
+    '''
+    energy_conversion_efficiency(能量利用率) = 80 %
+    '''
+    energy_conversion_efficiency = 0.8
+
+    '''温度'''
+    @classmethod
+    def temperature(cls, photon):
+        temperature = photon.density * photon.energy
+    @classmethod
+    def thermal_equilibrium(cls,*composition):
+        '''热平衡
+        linalg matrix:
+        SHC*mass*temp-Q=SHC*mass*t0
+        Q1+Q2+Q3+...=0
+
+        系数矩阵
+        [       a             ]      b
+        temp         Q1  Q2  Q3  SHC*mass*t0
+        SHC1*mass1   -1   0   0  SHC1*mass1*t0
+        SHC2*mass2   0   -1   0  SHC2*mass2*t0
+        SHC3*mass3   0   0   -1  SHC3*mass3*t0
+            0        1    1   1       0
+        '''
+        num=len(composition)
+        a=np.zeros((num+1,num+1))
+        b=np.zeros((num+1,1))
+
+        a[:-1,1:]=np.eye(num)*(-1)
+        a[num,1:]=1
+        a[num,0]=0
+        a[:num,0]=[i.SHC*i.mass for i in composition]
+        b[:num]=[i.SHC*i.mass*i.degree_Celsius for i in composition]
+        b[num]=0
+
+        temp=linalg.solve(a,b)[0]
+        return temp
+
+    @classmethod
+    def energy_conservation(cls):
+        dQ=dU+pdV
+
+    '''动量守恒'''
+    @classmethod
+    def momentum(self,mass,velocity):
+        momentum=mass*velocity
+
+    '''熵增加定律'''
+
+    '''做功与能量'''
+    @classmethod
+    def work(self,force,dist):
+        energy=force*dist
+
+    '''动能'''
+    @classmethod
+    def kinetic_energy(cls,mass,speed):
+        return 0.5*mass*speed**2
+
+    '''重力势能'''
+    @classmethod
+    def gravitational_potential_energy(cls,mass,height=None,M=None,r=None,on_earth=True):
+        if on_earth:
+            return mass*constants.g*height
+        elif r>0:
+            G=constants.gravity_constant
+            return -G*M*mass/r
 
 # -------------------------------Pure Substance
 class PureSubstance:
@@ -370,16 +476,17 @@ class PureSubstance:
         self.set_mass_charge(mass)
         self.volume=volume  # cubic meter
         self.density=self.mass/self.volume
-        self.pressure=self.get_pressure() #Pa
 
-        self.set_temp(temp)
-        self.state=self.get_state()
         self.standard_density=self.physical_property('standard density') #标准密度
         self.melting_point=self.physical_property('melting_point')  #熔点
         self.boiling_point=self.physical_property('boiling_point')  #沸点
         self.solubility=self.physical_property('solubility')  #溶解度(g/100g H2O)
         self.SHC=self.physical_property('specific_heat_capacity kJ/(mol*K)')  #比热容
         self.ionization=self.physical_property('ionization') #离子集
+
+        self.set_temp(temp)
+        self.state=self.get_state()
+        self.pressure=self.get_pressure() #Pa
 
     def set_temp(self,temp):
         self.Temp=temp+273.15
@@ -393,7 +500,7 @@ class PureSubstance:
 
     def physical_property(self,property):
         'get physical properties'
-        return MOLECULE_TABLE.loc[self.molecular_formula, property]
+        return MOLECULE_TABLE[property].get(self.molecular_formula)
 
     def get_state(self):
         '''There are four states of matter: solid,liquid and gas'''
@@ -449,7 +556,8 @@ class PureSubstance:
 
     def __add__(self,other):
         if type(self)==type(other) and self.molecular_formula==other.molecular_formula:
-            return PureSubstance(self.molecule,self.mass+other.mass,self.volume+other.volume)
+            temp = ThermodynamicLaw.thermal_equilibrium(self,other)
+            return PureSubstance(self.molecule,self.mass+other.mass,self.volume+other.volume,temp)
 
 
 #----------------Chemical_reaction
@@ -535,83 +643,6 @@ CHEMICAL_REACTION.set_index(keys='equation', inplace=True)
 
 CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(Chemical_reaction)
 
-#-----------------Physical law
-
-class PhysicalLaw:
-    '''
-    物理定律接口
-    '''
-    def __init__(self):
-        pass
-
-class NewtonLaw(PhysicalLaw):
-
-    @classmethod
-    def gravity(self, mass):
-        gravity = mass * self.gravity_constant
-
-    @classmethod
-    def first_law(self):
-        pass
-
-    @classmethod
-    def second_law(self,force=None,mass=None,a=None):
-        force=mass*a
-
-    @classmethod
-    def third_law(self, force,):
-        force=-force
-
-    @classmethod
-    def motion(self, x0, y0, t0, t, speed=[0, 0]):
-        X = x0 + speed[0] * (t - t0)
-        Y = y0 + speed[1] * (t - t0)
-
-    @classmethod
-    def friction(self, mass, coefficient):
-        '''摩擦力'''
-        friction = mass * coefficient * self.gravity_constant
-
-class ThermodynamicLaw(PhysicalLaw):
-    '''
-    energy_conversion_efficiency(能量利用率) = 80 %
-    '''
-    energy_conversion_efficiency = 0.8
-
-    '''温度'''
-    @classmethod
-    def temperature(self, photon):
-        temperature = photon.density * photon.energy
-
-    @classmethod
-    def energy_conservation(self):
-        dQ=dU+pdV
-
-    '''动量守恒'''
-    @classmethod
-    def momentum(self,mass,velocity):
-        momentum=mass*velocity
-
-    '''熵增加定律'''
-
-    '''做功与能量'''
-    @classmethod
-    def work(self,force,dist):
-        energy=force*dist
-
-    '''动能'''
-    @classmethod
-    def kinetic_energy(cls,mass,speed):
-        return 0.5*mass*speed**2
-
-    '''重力势能'''
-    @classmethod
-    def gravitational_potential_energy(cls,mass,height=None,M=None,r=None,on_earth=True):
-        if on_earth:
-            return mass*constants.g*height
-        elif r>0:
-            G=constants.gravity_constant
-            return -G*M*mass/r
 
 
 #-----------------------------------Mixture
@@ -627,31 +658,7 @@ class Matter:
         self.volume=volume
 
     def __temp_init(self):
-        '''
-        linalg matrix:
-        SHC*mass*temp-Q=SHC*mass*t0
-        Q1+Q2+Q3+...=0
-
-        系数矩阵
-        [       a             ]      b
-        temp         Q1  Q2  Q3  SHC*mass*t0
-        SHC1*mass1   -1   0   0  SHC1*mass1*t0
-        SHC2*mass2   0   -1   0  SHC2*mass2*t0
-        SHC3*mass3   0   0   -1  SHC3*mass3*t0
-            0        1    1   1       0
-        '''
-        num=len(self.composition)
-        a=np.zeros((num+1,num+1))
-        b=np.zeros((num+1,1))
-
-        a[:-1,1:]=np.eye(num)*(-1)
-        a[num,1:]=1
-        a[num,0]=0
-        a[:num,0]=[i.SHC*i.mass for i in self.composition.values]
-        b[:num]=[i.SHC*i.mass*i.degree_Celsius for i in self.composition.values]
-        b[num]=0
-
-        temp=linalg.solve(a,b)[0]
+        temp=ThermodynamicLaw.thermal_equilibrium(self.composition.values)
         self.set_temp(temp)
         for i in self.composition.values:
             i.set_temp(temp)
