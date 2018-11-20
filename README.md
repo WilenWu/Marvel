@@ -1,4 +1,4 @@
-# Marvel <img src="man/logo.jpg" align="right" />
+# Marvel <img src="man/logo.jpg" width="10%" height="10%" align="right" />
 *Create Marvel Universe*
 
 
@@ -8,13 +8,16 @@
 
 ## Theory
 ### math
-- 2D
 
-circle(圆):x^2^+y^2^=radius^2^
-aera=π*radius^2^
-circumference=2*π*radius
+shape|中文|equation|aera|circumference
+---|---|---|---|---
+circle|圆形|`x**2+y**2=r**2`|`πr**2`|`2πr`
 
-ellipse(椭圆):x^2/a^2+y^2/b^2=1
+
+
+```
+
+ellipse(椭圆):x**2/a**2+y**2/b**2=1
 aera=π*ab
 circumference=2πb+4(a-b)
 
@@ -39,13 +42,13 @@ cube(正方体):
 volume=edge**3
 surface area=6*edge**2
 
-ellipsoid(椭球体):x^2/a^2+y^2/b^2+z^2/c^2=1
+ellipsoid(椭球体):x**2/a**2+y**2/b**2+z**2/c**2=1
 volume=4/3*π*abc
 surface area=4/3*π*(ab+bc+ca)
 
-globe(球体):x^2+y^2+z^2=radius^2
-volume=4/3*π*radius**3
-surface area=4*π*radius**2
+globe(球体):x**2+y**2+z**2=r**2
+volume=4/3*π*r**3
+surface area=4*π*r**2
 
 cone(圆锥体):
 volume=1/3*πr**2*h
@@ -58,7 +61,7 @@ surface area=2πr(r+h)
 regular tetrahedron(正四面体):
 volume=sqrt(2)/12*a**3
 surface area=sqrt(3)*a**2
-'''
+```
 
 chemistry=r'''
 化学反应的本质是旧化学键断裂和新化学键形成的过程
