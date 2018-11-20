@@ -5,45 +5,112 @@ import numpy as np
 
 from Marvel import Science
 from scipy import constants
-from Marvel.Science import UNITS
-
+from Marvel.Science import Molecule,ChemicalReaction
 UNITS.load_unit('ATP', 30.54, kJ=1, mol=-1)
 
-# #--------------------细胞结构
-# 细胞壁
-# 纤维素+果胶
+# 元素
+# O Si C N H
+# 地壳[48.6,26.3,0.087,0.03,0.76]
+# 细胞[65,0,18,3,10]
+# 大量元素macroelement=[C,H,O,N,P,S,K,Ca,Mg]
+# 微量元素microelement=[Fe,Mn,Zn,Cu,B,Mo,...]
 #
-# 细胞膜cell membrance
-# 脂质（磷脂）50%+蛋白质40%+糖2-10%
-# 分割+控制物质流+信息交流
+# # 组成细胞的化合物
+# 无机
+# 水85-90
+# 结合水(全部水分的4.5)和自由水
 #
-# 细胞器organelle
-# 线粒体 叶绿体
-# 内质网+核糖体->蛋白质和脂质
-# 高尔基体 -> 蛋白质加工
-# 溶酶体 ->消化分解
-# 细胞核
-# 核糖体（附着 游离）
-# 液泡
+# 无机盐1-1.5
+# 阳离子Na+ K+ Ca2+ Mg2+ Fe2+ Fe3+
+# 阴离子Cl- SO4^2- PO4^3- HCO3-
 #
-# 细胞质
-# 细胞质基质
-# 水 无机盐 脂质 糖 核苷酸  氨基酸 酶
-# 囊泡
+# 有机
+# protein蛋白质7-10
+# 脂质1-2
+# 糖类和核酸1-1.5
 #
-# biomembrance生物膜系统
-# 跨膜运输：选择性透过
-# 磷脂双分子层 镶嵌蛋白
-# 被动运输passive transport 不耗能
-# h20 co2 自由扩散free diffusion
-# 葡萄糖 载体蛋白协助扩散facilitated diffusion
-# 主动运输ative transport 耗能
-# Na K Ca
+
+
+
+# R:
+# H甘氨酸
+# CH3丙氨酸
+
 #
+# 脱水缩合
 #
-# 细胞核nucleus
-# 染色体chromosome
+# # 核酸 nucleic acid
+# DNA and RNA 细胞质
+# 磷酸PO4+核糖+碱基
+# ACG+T|U
+# A=T,G=C
+# tRNA
+# transcription转录 and translation翻译
+# rRNA
+# mRNA
 #
+# 密码子
+# gene mutation基因突变
+# gene recombination基因重组
+# chromosome variations染色体变异 结构和数目
+
+
+
+#-----------------有机分子(organic molecule)
+class Carbohydrate(Molecule):
+    '''糖类
+    Monosaccharide(单糖,C6H12O6): glucose(葡萄糖),ribose(核糖,C5H12O5)
+    Disaccharide(二糖,C12H22O11): sugar(蔗糖),maltose(麦芽糖)
+    Polysaccharide(): starch(淀粉),cellulose(纤维素)
+    '''
+    pass
+
+class Lipid(Molecule):
+    '''脂质
+    Fat(脂肪)
+    Phospholipid(磷脂)
+    Sterol(固醇)
+    '''
+    pass
+
+class Protein(Molecule):
+    '''蛋白质
+# amino acid 氨基酸 20多种
+# H2N-CHR-COOH
+    '''
+    pass
+
+class OrganicCompounds(PureSubstance):
+    pass
+
+#-----------------生化反应和酶促反应
+class BiochemicalReaction(ChemicalReaction):
+    '反应物生成物可以不用化学式'
+    pass
+
+
+class EnzymaticReaction(BiochemicalReaction):
+
+    def rate_equation(self,Temp,**concentration):
+        '''
+        molecules,atoms or ions : float(mol/L), cover enzyme(酶),etc
+        '''
+        c = concentration  # mol/L
+
+        enzyme=self.enzyme
+        relative_conc=[c.get(i,0)/j for i,j in self.reactant.items()] #相对浓度
+        s=min(relative_conc) #底物浓度(mol/L)
+        e=c.get(enzyme,0) #酶浓度(mol/L)
+
+        Km=self.Km # mmol/L
+        Kcat=self.catalytic_efficiency*Km  #1/s
+        Km=Km*1000  #mol/L
+        Vmax=Kcat*e # mol/(L*s)
+
+        v=Vmax*s/(Km+s)
+        return v
+#--------------------细胞结构
+
 # cellular metabolism 细胞代谢
 # ADP+PI=AT
 # 主要来源
@@ -75,14 +142,27 @@ UNITS.load_unit('ATP', 30.54, kJ=1, mol=-1)
 # 细胞凋亡apoptosis
 #------------cell
 class Biomembrance(Matter):
-    def __init__(self,radius):
+    '''
+# 分割+控制物质流+信息交流
+
+# biomembrance生物膜系统
+# 跨膜运输：选择性透过
+# 磷脂双分子层 镶嵌蛋白
+# 被动运输passive transport 不耗能
+# h20 co2 自由扩散free diffusion
+# 葡萄糖 载体蛋白协助扩散facilitated diffusion
+# 主动运输ative transport 耗能
+# Na K Ca
+    '''
+    def __init__(self,radius,thickness=10,seed=None):
         '''
         biomembrance thickness:8-10nm
         phospholipid molecules:5e+6/um2
 
+        脂质（磷脂）50%+蛋白质40%+糖2-10%
         transport protein:carrier protein and channel protein
         '''
-        self.thickness=10
+        self.thickness=thickness
         self.surface_aera=4*PI*radius**2
         self.phospholipid_count=np.ceil(self.surface_aera*5e+6)
         self.carrier_protein=None
@@ -109,6 +189,20 @@ class Biomembrance(Matter):
 
 class Cell:
     '''
+    # 细胞器organelle
+# 线粒体 叶绿体
+# 内质网+核糖体->蛋白质和脂质
+# 高尔基体 -> 蛋白质加工
+# 溶酶体 ->消化分解
+# 细胞核
+# 核糖体（附着 游离）
+# 液泡
+#
+# 细胞质
+# 细胞质基质
+# 水 无机盐 脂质 糖 核苷酸  氨基酸 酶
+# 囊泡
+
     diameter:
     prokaryotic cell:1-10um
     eukaryotic cell:3-30um
@@ -167,6 +261,8 @@ class Cell:
 
 class CellWall(Matter):
     '''
+    # 细胞壁
+# 纤维素+果胶
     bacterial(细菌):peptidoglycan(肽聚糖)
     plant:cellulose,hemi-cellulose and lignin
     fungus(真菌):chitin(可壳糖)
@@ -217,7 +313,8 @@ class Mitochondrion:
         '呼吸作用'
         pass
 
-
+# 细胞核nucleus
+# 染色体chromosome
 #-------------------living
 
 # ecosystem 生态系统
@@ -251,61 +348,4 @@ class Cyanobacteria(Cell):
 # birth and death rate
 # sex ratio
 #
-# # 元素
-# O Si C N H
-# 地壳[48.6,26.3,0.087,0.03,0.76]
-# 细胞[65,0,18,3,10]
-# 大量元素macroelement=[C,H,O,N,P,S,K,Ca,Mg]
-# 微量元素microelement=[Fe,Mn,Zn,Cu,B,Mo,...]
-#
-# # 组成细胞的化合物
-# 无机
-# 水85-90
-# 结合水(全部水分的4.5)和自由水
-#
-# 无机盐1-1.5
-# 阳离子Na+ K+ Ca2+ Mg2+ Fe2+ Fe3+
-# 阴离子Cl- SO4^2- PO4^3- HCO3-
-#
-#
-#
-#
-# 有机
-# protein蛋白质7-10
-# 脂质1-2
-# 糖类和核酸1-1.5
-#
-# # 蛋白质protein
-# amino acid 氨基酸 20多种
-# H2N-CHR-COOH
-# R:
-# H甘氨酸
-# CH3丙氨酸
-# enzyme activity 酶活性 温度 ph
-#
-# 脱水缩合
-#
-# # 核酸 nucleic acid
-# DNA and RNA 细胞质
-# 磷酸PO4+核糖+碱基
-# ACG+T|U
-# A=T,G=C
-# tRNA
-# transcription转录 and translation翻译
-# rRNA
-# mRNA
-#
-# 密码子
-# gene mutation基因突变
-# gene recombination基因重组
-# chromosome variations染色体变异 结构和数目
-#
-# # carbohydrate 糖类
-# 单糖c6h12o6葡萄糖glucose
-# 二糖c12h22011 sugar
-# c12h22011+h2o=2c6h12o6
-# 多糖(c6h10o5)n淀粉
-# (c6h10o5)n+nh2o=nc6h12o6
-# # 脂质lipid
-# 脂肪 磷脂 固醇
 #

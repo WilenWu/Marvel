@@ -314,11 +314,12 @@ class Molecule:
         return "Molecule('{}')".format(self.formula)
 
 class Ion(Molecule):
-    def __init__(self,formula,anti=False):
+    def __init__(self,formula,name=None,anti=False):
         '''
         :param formula: str
         '''
         self.formula=formula
+        self.name=name
         self.ionic_electron=self.__ionic_electron()
         self.atoms=self.get_atoms(self.formula)
         self.anti=anti
@@ -421,8 +422,8 @@ class ThermodynamicLaw(PhysicalLaw):
         a[num,1:]=1
         a[num,0]=0
         a[:num,0]=[i.SHC*i.mass for i in composition]
-        b[:num]=[i.SHC*i.mass*i.degree_Celsius for i in composition]
-        b[num]=0
+        b[:num,0]=[i.SHC*i.mass*i.degree_Celsius for i in composition]
+        b[num,0]=0
 
         temp=linalg.solve(a,b)[0]
         return temp
@@ -495,12 +496,12 @@ class PureSubstance:
 
     def set_mass_charge(self,mass):
         self.mass=mass  #kg
-        self.amount_of_substance=self.mass*1000/self.relative_molecular_mass  #mol
-        self.charge=self.molecule.charge*self.amount_of_substance*constants.e   # C
+        self.amount_of_substance=self.mass/(self.relative_molecular_mass*constants.atomic_mass*constants.Avogadro)  #mol
+        self.charge=self.molecule.charge*self.amount_of_substance*constants.e*constants.Avogadro   # C
 
     def physical_property(self,property):
         'get physical properties'
-        return MOLECULE_TABLE[property].get(self.molecular_formula)
+        return MOLECULE_TABLE[property].get(self.molecular_formula,None)
 
     def get_state(self):
         '''There are four states of matter: solid,liquid and gas'''
@@ -511,8 +512,7 @@ class PureSubstance:
             state='liquid'
         elif temp>self.boiling_point:
             state='gas'
-        else:
-            state=None
+
         return state
 
     def heat_transfer(self,heat):
@@ -555,7 +555,7 @@ class PureSubstance:
         return '{}:{}'.format(name,self.molecular_formula)
 
     def __add__(self,other):
-        if type(self)==type(other) and self.molecular_formula==other.molecular_formula:
+        if type(self.molecule)==Molecule and self.molecular_formula==other.molecular_formula:
             temp = ThermodynamicLaw.thermal_equilibrium(self,other)
             return PureSubstance(self.molecule,self.mass+other.mass,self.volume+other.volume,temp)
 
@@ -565,16 +565,22 @@ class ChemicalReaction:
     def __init__(self,equation):
         self.equation=equation
         self.reactant,self.product=self.get_stoichiometric_number()
-        self.A,self.Ea=CHEMICAL_REACTION.loc[equation,['A','Ea(kJ/mol)']] #kJ/mol
-        self.enzyme=CHEMICAL_REACTION.loc[equation,'enzyme']
-        self.Km=CHEMICAL_REACTION.loc[equation,'Km(mmol/L)']
-        self.Kcat = CHEMICAL_REACTION.loc[equation, 'Kcat(1/s)']
+
+        self.A=self.chemical_property('A')
+        self.Ea=self.chemical_property('Ea(kJ/mol)')#kJ/mol
+        self.enzyme=self.chemical_property('enzyme')
+        self.Km=self.chemical_property('Km(mmol/L)')
+        self.Kcat = self.chemical_property('Kcat(1/s)')
         self.catalytic_efficiency=self.Kcat/self.Km
 
         self.reaction_enthalpies=self.reaction_enthalpies() #kJ/mol
         self.ΔrHmΘ=self.reaction_enthalpies #kJ/mol
         self.reaction_heat=self.reaction_enthalpies #kJ/mol
         self.Qp=self.reaction_heat #kJ/mol
+
+    def chemical_property(self,property):
+        'get chemical properties'
+        return CHEMICAL_REACTION[property].get(self.equation,None)
 
     def get_stoichiometric_number(self):
         equation=self.equation
@@ -593,43 +599,28 @@ class ChemicalReaction:
 
     def reaction_enthalpies(self):
         equation=self.equation
-        def bold_energy(molecule_dict):
-            bold_energy=0.0
+        def bolds_energy(molecule_dict):
+            bolds_energy=0.0
             for i in molecule_dict:
-                bold_energy+=MOLECULES[i].bond_energy*molecule_dict[i]
-            return bold_energy #kJ/mol
+                bolds_energy+=MOLECULES[i].bonds_energy*molecule_dict[i]
+            return bolds_energy #kJ/mol
 
-        return bold_energy(self.reactant)-bold_energy(self.product)
+        return bolds_energy(self.reactant)-bolds_energy(self.product)
 
     def rate_equation(self,Temp,**concentration):
         '''
-        molecules,atoms or ions : float(mol/L), cover catalyst(催化剂),enzyme(酶),etc
+        molecules,atoms or ions : float(mol/L), cover catalyst(催化剂),etc
         '''
+        c = concentration  # mol/L
 
-        if self.enzyme is not None:
-            c=concentration #mol/L
-            enzyme=self.enzyme
-            relative_conc=[c.get(i,0)/j for i,j in self.reactant.items()] #相对浓度
-            s=min(relative_conc) #底物浓度(mol/L)
-            e=c.get(enzyme['enzyme'],0) #酶浓度(mol/L)
-
-            Km=self.Km # mmol/L
-            Kcat=self.catalytic_efficiency*Km  #1/s
-            Km=Km*1000  #mol/L
-            Vmax=Kcat*e # mol/(L*s)
-
-            v=Vmax*s/(Km+s)
-            return v
-        else:
-            R = constants.gas_constant * 0.001 # kJ/(mol*K)
-            c = {i: j * 0.001 for i, j in concentration.items()} # mmol/L
-            A,Ea=self.A,self.Ea #kJ/mol
-            k = A*np.exp(-Ea/(R*Temp))
-            tmp=1
-            for i,j in self.reactant.items():
-                tmp*=c.get(i,0)**j
-            v=k*tmp # mmol/(L*s)
-            return v*1000 # mol/(L*s)
+        R = constants.gas_constant/1000 # kJ/(mol*K)
+        A,Ea=self.A,self.Ea #kJ/mol
+        k = A*np.exp(-Ea/(R*Temp))
+        tmp=1
+        for i,j in self.reactant.items():
+            tmp*=c.get(i,0)**j
+        v=k*tmp # mol/(cm3*s)
+        return v*1000 # mol/(L*s)
 
     def __str__(self):
         return self.equation
@@ -638,15 +629,14 @@ class ChemicalReaction:
 
 #list of reactions
 CHEMICAL_REACTION=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_equation')
-CHEMICAL_REACTION.loc[:,'enzyme']=CHEMICAL_REACTION.loc[:,'enzyme'].map(eval)
 CHEMICAL_REACTION.set_index(keys='equation', inplace=True)
 
-CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(Chemical_reaction)
+CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(ChemicalReaction)
 
 
 
-#-----------------------------------Mixture
-class Matter:
+#-----------------------------------Matter
+class Mixture:
     def __init__(self,volume,*composition):
         '''
         composition: PureSubstance
@@ -656,6 +646,7 @@ class Matter:
         self.mass_percent={i:j.mass/self.mass for i,j in self.composition.items()}
         self.diffusion()
         self.volume=volume
+        self.density=self.mass/self.volume
 
     def __temp_init(self):
         temp=ThermodynamicLaw.thermal_equilibrium(self.composition.values)
@@ -710,9 +701,9 @@ class Matter:
             Q+=i.SHC*i.mass*1
         return Q/self.mass
 
-    def heat_transfer(self,heat):
+    def heat_transfer(self,heat,SHC=None):
         'heat:kJ'
-        SHC=self.get_SHC()
+        SHC=self.get_SHC() if SHC is None else SHC
         delta_t=heat/(SHC*self.mass)
         self.set_temp(self.degree_Celsius+delta_t)
         for i in self.composition.values:
@@ -728,7 +719,11 @@ class Matter:
         self.composition=dict(n)
         self.set_mass_charge(mass)
 
+    def physical_law(self,law):
+        '物理定律接口'
+        pass
 
+class Matter(Mixture):
     def __reaction_rate(self,T,env):
         rate={}
         power_total=0
@@ -760,84 +755,3 @@ class Matter:
 
             p=[PureSubstance(i,MOLECULES[i].mass*j*1e-3) for i,j in rate.items()]
         return p,energy
-
-    def physical_law(self,law):
-        '物理定律接口'
-        pass
-
-
-
-THEORY={}
-THEORY['chemistry']=r'''
-化学反应的本质是旧化学键断裂和新化学键形成的过程
-chemical equation:
-s: solid(固体), l: liquid(液体), g: gas(气体), aq: Aqueous solution(溶液)
-
-反应是否进行由体系的吉布斯自由能(Gibbs free energy)变化确定
-反应热(reaction heat)为吸热或放热反应，完全由体系的反应焓变(reaction enthalpies)决定
-键能(Bond Energy)是从能量因素衡量化学键强弱的物理量。
-
-ΔG(Gibbs free energy change) = ΔH - TΔS
-Qp(reaction heat) = ΔU + pΔV
-Qp = ΔH
-ΔH(reaction enthalpies) = ΣΕ(reactant) — ΣΕ(product) (利用键能计算反应热)
-
-ΔS: entropy change
-T: Kelvin temperature, E: chemical bold energy
-
-ΔG < 0 : 自发反应
-ΔG = 0 : 不能反应
-ΔG > 0 : 逆反应自发进行
-
-ΔH < 0 : exothermic reaction(放热反应)
-ΔH > 0 : endothermic reaction(吸热反应)
-
-化学计量数(stoichiometric number)：化学反应方程式中,参与反应的物质前的系数,称化学计量数
-化学反应速率定义为单位时间内反应物或生成物浓度的变化量
-
------------rR=nM{m+}+mN{n-}
-离子积常数是化学平衡常数的一种形式，多用于纯液体和难溶电解质的电离
-K=[M{m+}]**n*[N{n-}]**m
-Kw=[H{+}]*[OH{-}]=1e-14 mol/L
-pH=-log[H+]
-K: ion product(离子积), Kw: 水的离子积
-
-Ka=[M{m+}]**n*[N{n-}]**m/[R]**r
-pKa=-logKa
-Ka: ionization constant(电离平衡常数)
-
------------ aA+bB=cC+dD
-国际单位制建议反应速率
-v = -1/a*d[A]/dt = -1/b*d[B]/dt = 1/c*d[C]/dt = 1/d*d[D]/dt
-化学反应速率方程(the rate law or rate equation for a chemical reaction)
-v = k*[A]**m*[B]**n
-Arrhenius equation： k = A*exp(-Ea/(RT))
-k: 反应速率常数(reaction rate constant), [X]: 表示物质X的浓度, m,n: 反应级数(order of reaction)
-A: 指前因子(Pre-exponential factor), Ea: 活化能(Activation energy)
-R: 摩尔气体常数(Molar gas constant), T: 开尔文温度(kelvin temperature)
-
-Enzyme catalysis(酶促反应)
-Michaelis-Menten equation：
-v = Vmax[S]/(Km+[S])
-Vmax=Kcat[E]
-[S]: substrate concentration
-[E]: enzyme concentration
-Kcat: turnover number(转化数)
-Km: Michaelis constant(米氏常数)
-Soil enzyme activity was mostly affected by substrate concentration
-
-|   -- reaction process --
-|      /          \
-|  Ea(forward)     \
-|    /           Ea(reverse)
-|-------------|      \
-| A+B        ΔU       \
-|           --|----------
-|                    C+D
-energy
-
-'''
-THEORY['physics']=r'''
-physical constants:
-
-'''
