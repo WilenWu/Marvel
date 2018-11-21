@@ -461,6 +461,12 @@ class ThermodynamicLaw(PhysicalLaw):
             G=constants.gravity_constant
             return -G*M*mass/r
 
+def kg2mol(kg,relative_molecular_mass):
+    return kg / (relative_molecular_mass * constants.atomic_mass * constants.Avogadro)
+
+def mol2kg(mol,relative_molecular_mass):
+    return relative_molecular_mass * constants.atomic_mass * constants.Avogadro * mol
+
 # -------------------------------Pure Substance
 class PureSubstance:
 
@@ -497,9 +503,9 @@ class PureSubstance:
         self.Temp=temp+273.15
         self.degree_Kelvin=self.Temp
         self.degree_Celsius=temp
-        
+
     def get_amount_of_substance(self,mass):
-        return mass/(self.relative_molecular_mass*constants.atomic_mass*constants.Avogadro)  #mol
+        return kg2mol(mass,self.relative_molecular_mass)  #mol
 
     def set_mass_charge(self,mass):
         self.mass=mass  #kg
@@ -564,7 +570,7 @@ class PureSubstance:
     def __repr__(self):
         '显示单质或化合物'
         name='Elementary Substance' if len(self.molecule.atoms)==1 else 'Compound'
-        return '{}({},mass={},volume={},{}℃)'.\
+        return '{}({},mass={},volume={:.2e},{}℃)'.\
             format(name,self.molecular_formula,self.mass,self.volume,self.degree_Celsius)
 
     def __add__(self,other):
@@ -618,7 +624,7 @@ class ChemicalReaction:
 
         return bolds_energy(self.reactant)-bolds_energy(self.product)
 
-    def rate_equation(self,Temp,**concentration):
+    def rate_equation(self,Temp,concentration):
         '''
         molecules,atoms or ions : float(mol/L), cover catalyst(催化剂),etc
         '''
@@ -649,12 +655,8 @@ class Mixture:
         composition: tuple or list of PureSubstance
         '''
         self.composition={i.molecular_formula:i for i in composition}
-        self.set_mass_charge()
-        self.mass_percent={i:j.mass/self.mass for i,j in self.composition.items()}
-        self.volume=volume
-        self.density=self.mass/self.volume
-        
-        self.diffusion()
+        self.volume=volume  #混合体积
+        self.property_update()
         self.__temp_init()
 
 
@@ -668,6 +670,12 @@ class Mixture:
         self.Temp=temp+273.15
         self.degree_Kelvin=self.Temp
         self.degree_Celsius=temp
+
+    def property_update(self):
+        self.set_mass_charge()
+        self.mass_percent={i:j.mass/self.mass for i,j in self.composition.items()}
+        self.density = self.mass / self.volume
+        self.diffusion()
 
     def set_mass_charge(self):
         mass=charge=0
@@ -719,19 +727,20 @@ class Mixture:
         for i in self.composition.values():
             i.set_temp(i.degree_Celsius+delta_t)
             i.state=i.get_state()
+        self.diffusion()
 
-    def materia_exchange(self,PureSubstance):
-        p=PureSubstance
-        p=pd.Series(p,index=[p.molecular_formula])
+    def materia_exchange(self,list_of_PureSubstance):
+        p={i.molecular_formula:i for i in list_of_PureSubstance}
+        p=pd.Series(p)
         p0=pd.Series(self.composition)
         p1=p0+p
         p1.fillna(0)
         self.composition=dict(p1)
-        self.set_mass_charge()
+        self.property_update()
 
 
     def __repr__(self):
-        return "Mixture: mass={},volume={},{}℃".\
+        return "Mixture: mass={},volume={:2e},{}℃".\
             format(self.mass,self.volume,self.degree_Celsius)
 
     def physical_law(self,law):
@@ -739,34 +748,39 @@ class Mixture:
         pass
 
 class Matter(Mixture):
-    def __reaction_rate(self,T,**env):
+    def __reaction_rate(self,Temp,env):
         rate={}
         power_total=0
         for k in CHEMICAL_REACTION:
             reaction=k
             reactant,product=reaction.reactant,reaction.product
-            v=reaction.rate_equation(T,**env)
-            power=reaction.Qp*v
+            v=reaction.rate_equation(Temp,env) ## mol/(L*s)
+            power=reaction.Qp*v*self.volume*1000 #kJ/s
             power_total+=power
             for i,j in reacant.items():
-                rate[i]=rate.get(i,0)-v*j
+                rate[i]=rate.get(i,0)-v*j*self.volume*1000
             for i,j in product.items():
-                rate[i]=rate.get(i,0)+v*j
-        return rate,power_total
+                rate[i]=rate.get(i,0)+v*j*self.volume*1000
+        return rate,power_total #mol/s, kJ/s
 
     def chemical_reaction_process(self,Δt,accuracy=1e-3):
-
+        'Δt: sec'
         dt=accuracy*Δt
         energy=0
+        subs=pd.Series([])
 
         for m in np.arange(0,Δt,dt):
             T=self.Temp
-            env={i:j.amount_of_substance/self.volume for i,j in self.composition.items()}
+            env={i:j.amount_of_substance/(self.volume*1000) for i,j in self.composition.items()}
 
             rate,power=__reaction_rate(T,env)
             t=dt if Δt-m>=dt else Δt-m
-            Q=power*t
-            energy+=Q
+            energy+=power*t
+            subs+=pd.Series(rate)*t
 
-            p=[PureSubstance(i,MOLECULES[i].mass*j*1e-3) for i,j in rate.items()]
-        return p,energy
+        subs=pd.DataFrame(subs,columns=['mol'])
+        subs['Molecule']=subs.index.to_series().map(lambda x:MOLECULES(x))
+        subs['kg']=[mol2kg(i[0],i[1]) for i in subs]
+
+        p=[PureSubstance(i[1],mass=i[2],volume=i[2]/i[1].standard_density,temp=self.degree_Celsius) for i in subs]
+        return p,energy #物质变化和反应热
