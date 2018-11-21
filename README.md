@@ -26,7 +26,7 @@ ellipsoid|椭球体|`x**2/a**2+y**2/b**2+z**2/c**2=1`|`(4/3)πabc`|`(4/3)π(ab+b
 globe|球体|`x**2+y**2+z**2=r**2`|`(4/3)πr**3`|`4πr**2`
 cone|圆锥体||`(1/3)hπr**2`|`πr(r+sqrt(r**2+h**2))`
 cylinder|圆柱体||`hπr**2`|`2πr(r+h)`
-regular tetrahedron|正四面体||`sqrt(2)/12a**3`|`sqrt(3)a**2`
+regular tetrahedron|正四面体||`sqrt(2)/12*edge**3`|`sqrt(3)*edge**2`
 
 ### chemistry
 

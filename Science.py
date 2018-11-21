@@ -149,7 +149,7 @@ class Units:
         self.load_unit('L', dm=3)
         self.load_prefix_unit(['mg','mL','kJ','kcal', 'kPa','MPa','kmol','kN'])
 
-    def __str__(self):
+    def __repr__(self):
         return 'Units'
 
 UNITS=Units()
@@ -160,21 +160,21 @@ class Electron:
     def __init__(self,anti=False):
         self.charge=1 if anti else -1
         self.mass=constants.m_e/constants.atomic_mass
-    def __str__(self):
+    def __repr__(self):
         return 'Electron'
 
 class Proton:
     def __init__(self, anti=False):
         self.charge = -1 if anti else 1
         self.mass=constants.m_p/constants.atomic_mass
-    def __str__(self):
+    def __repr__(self):
         return 'Proton'
 
 class Neutron:
     def __init__(self, anti=False):
         self.charge=0
         self.mass=constants.m_u/constants.atomic_mass
-    def __str__(self):
+    def __repr__(self):
         return 'Neutron'
 
 class Photon:
@@ -191,7 +191,7 @@ class Photon:
         self.E=self.energy
         self.h=self.momentum
 
-    def __str__(self):
+    def __repr__(self):
         return 'Photon(ν={})'.format(self.frequency)
 
 class Field:
@@ -230,12 +230,12 @@ class Atom:
         'fission and fusion(裂变和聚变)'
         pass
 
-    def __str__(self):
+    def __repr__(self):
         return 'Atom({p},{n})'.format(p=self.protons,n=self.neutrons)
 
 
 #----------------periodic_table
-PERIODIC_TABLE=pd.read_excel('Marvel/Science.xlsx',sheet_name='periodic_table')
+PERIODIC_TABLE=pd.read_excel('Init.xlsx',sheet_name='periodic_table')
 PERIODIC_TABLE.set_index(keys='element', inplace=True)
 ATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron']),axis=1)
 antiATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron'],anti=True),axis=1)
@@ -247,7 +247,8 @@ class Molecule:
         :param formula: str
         '''
         self.formula=formula
-        self.name=MOLECULE_TABLE.loc[self.formula, 'name']
+        self.name=MOLECULE_TABLE['name'].get(self.formula,None)
+        self.standard_density=MOLECULE_TABLE['standard density'].get(self.formula,None)
         self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge()
@@ -310,8 +311,8 @@ class Molecule:
             bonds_energy+=CHEMICAL_BOND[i]*j
         return bonds,bonds_energy
 
-    def __str__(self):
-        return "Molecule('{}')".format(self.formula)
+    def __repr__(self):
+        return "Molecule({})".format(self.formula)
 
 class Ion(Molecule):
     def __init__(self,formula,name=None,anti=False):
@@ -329,9 +330,12 @@ class Ion(Molecule):
         sign=-1 if charge[-1]=='+' else 1
         n=1 if len(charge)==1 else int(charge[:-1])
         return n*sign
+    
+    def __repr__(self):
+        return "Ion({})".format(self.formula)
 
 # chemical bond: ionic bond,covalent bond and metallic bond
-CHEMICAL_BOND=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_bond')
+CHEMICAL_BOND=pd.read_excel('Init.xlsx',sheet_name='chemical_bond')
 def __reverse(x):
     if x in ['N-H..O','N..H-O']:
         return None
@@ -344,7 +348,7 @@ __CB['bond']=__CB['bond'].map(__reverse)
 CHEMICAL_BOND=CHEMICAL_BOND.append(__CB.dropna()).drop_duplicates()
 CHEMICAL_BOND=pd.Series(CHEMICAL_BOND['energy(KJ/mol)'].values,index=CHEMICAL_BOND['bond'])
 
-MOLECULE_TABLE=pd.read_excel('Marvel/Science.xlsx',sheet_name='molecule')
+MOLECULE_TABLE=pd.read_excel('Init.xlsx',sheet_name='molecule')
 MOLECULE_TABLE.loc[:,['bond','ionization']]=MOLECULE_TABLE.loc[:,['bond','ionization']].applymap(eval)
 MOLECULE_TABLE.replace('Inf', inf, inplace=True)
 MOLECULE_TABLE.set_index(keys='formula', inplace=True)
@@ -390,17 +394,16 @@ class NewtonLaw(PhysicalLaw):
         friction = mass * coefficient * self.gravity_constant
 
 class ThermodynamicLaw(PhysicalLaw):
-    '''
-    energy_conversion_efficiency(能量利用率) = 80 %
-    '''
-    energy_conversion_efficiency = 0.8
+
+    energy_conversion_efficiency = 0.8 #能量利用率
 
     '''温度'''
     @classmethod
     def temperature(cls, photon):
         temperature = photon.density * photon.energy
+        
     @classmethod
-    def thermal_equilibrium(cls,*composition):
+    def thermal_equilibrium(cls,composition):
         '''热平衡
         linalg matrix:
         SHC*mass*temp-Q=SHC*mass*t0
@@ -464,7 +467,7 @@ class PureSubstance:
     def __init__(self,molecule,mass,volume=None,temp=15):
         '''
          PureSubstance: Compound and Elementary Substance
-         :param molecule:  molecule
+         molecule:  Molecule
          temp: ℃
          amount of substance: mol
         '''
@@ -479,6 +482,7 @@ class PureSubstance:
         self.density=self.mass/self.volume
 
         self.standard_density=self.physical_property('standard density') #标准密度
+        self.standard_concentration=self.get_standard_concentration()
         self.melting_point=self.physical_property('melting_point')  #熔点
         self.boiling_point=self.physical_property('boiling_point')  #沸点
         self.solubility=self.physical_property('solubility')  #溶解度(g/100g H2O)
@@ -493,10 +497,13 @@ class PureSubstance:
         self.Temp=temp+273.15
         self.degree_Kelvin=self.Temp
         self.degree_Celsius=temp
+        
+    def get_amount_of_substance(self,mass):
+        return mass/(self.relative_molecular_mass*constants.atomic_mass*constants.Avogadro)  #mol
 
     def set_mass_charge(self,mass):
         self.mass=mass  #kg
-        self.amount_of_substance=self.mass/(self.relative_molecular_mass*constants.atomic_mass*constants.Avogadro)  #mol
+        self.amount_of_substance=self.get_amount_of_substance(mass)
         self.charge=self.molecule.charge*self.amount_of_substance*constants.e*constants.Avogadro   # C
 
     def physical_property(self,property):
@@ -548,17 +555,25 @@ class PureSubstance:
             Δm=math.abs(self.mass-others.mass)
             E=2*Δm*constants.c**2
             return 2*Δm,E
+        
+    def get_standard_concentration(self):
+        mass=self.standard_density/1000  #kg/dm3
+        mol=self.get_amount_of_substance(mass)
+        return mol #mol/L
 
-    def __str__(self):
+    def __repr__(self):
         '显示单质或化合物'
         name='Elementary Substance' if len(self.molecule.atoms)==1 else 'Compound'
-        return '{}:{}'.format(name,self.molecular_formula)
+        return '{}({},mass={},volume={},{}℃)'.\
+            format(name,self.molecular_formula,self.mass,self.volume,self.degree_Celsius)
 
     def __add__(self,other):
         if type(self.molecule)==Molecule and self.molecular_formula==other.molecular_formula:
-            temp = ThermodynamicLaw.thermal_equilibrium(self,other)
+            temp = ThermodynamicLaw.thermal_equilibrium([self,other])
             return PureSubstance(self.molecule,self.mass+other.mass,self.volume+other.volume,temp)
 
+
+unitPURE=MOLECULES.map(lambda x:PureSubstance(x,mass=1,volume=1/x.standard_density))
 
 #----------------Chemical_reaction
 class ChemicalReaction:
@@ -568,10 +583,6 @@ class ChemicalReaction:
 
         self.A=self.chemical_property('A')
         self.Ea=self.chemical_property('Ea(kJ/mol)')#kJ/mol
-        self.enzyme=self.chemical_property('enzyme')
-        self.Km=self.chemical_property('Km(mmol/L)')
-        self.Kcat = self.chemical_property('Kcat(1/s)')
-        self.catalytic_efficiency=self.Kcat/self.Km
 
         self.reaction_enthalpies=self.reaction_enthalpies() #kJ/mol
         self.ΔrHmΘ=self.reaction_enthalpies #kJ/mol
@@ -622,36 +633,35 @@ class ChemicalReaction:
         v=k*tmp # mol/(cm3*s)
         return v*1000 # mol/(L*s)
 
-    def __str__(self):
-        return self.equation
-
+    def __repr__(self):
+        return "ChemicalReaction({})".format(self.equation)
 
 
 #list of reactions
-CHEMICAL_REACTION=pd.read_excel('Marvel/Science.xlsx',sheet_name='chemical_equation')
+CHEMICAL_REACTION=pd.read_excel('Init.xlsx',sheet_name='chemical_equation')
 CHEMICAL_REACTION.set_index(keys='equation', inplace=True)
-
 CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(ChemicalReaction)
-
-
 
 #-----------------------------------Matter
 class Mixture:
-    def __init__(self,volume,*composition):
+    def __init__(self,volume,composition):
         '''
-        composition: PureSubstance
+        composition: tuple or list of PureSubstance
         '''
         self.composition={i.molecular_formula:i for i in composition}
         self.set_mass_charge()
         self.mass_percent={i:j.mass/self.mass for i,j in self.composition.items()}
-        self.diffusion()
         self.volume=volume
         self.density=self.mass/self.volume
+        
+        self.diffusion()
+        self.__temp_init()
+
 
     def __temp_init(self):
-        temp=ThermodynamicLaw.thermal_equilibrium(self.composition.values)
+        temp=ThermodynamicLaw.thermal_equilibrium(self.composition.values())
         self.set_temp(temp)
-        for i in self.composition.values:
+        for i in self.composition.values():
             i.set_temp(temp)
 
     def set_temp(self,temp):
@@ -661,7 +671,7 @@ class Mixture:
 
     def set_mass_charge(self):
         mass=charge=0
-        for i in self.composition.values:
+        for i in self.composition.values():
             mass+=i.mass
             charge+=i.charge
         self.mass=mass
@@ -674,20 +684,20 @@ class Mixture:
         if solvent is not None:
             for i,j in self.composition.items():
                 solute[i]=j.solubility(solvent)
-        return solvent,solute
+        return solvent,solute  #溶剂和溶质
 
     def diffusion(self):
         '扩散'
-        used_volume=[i.volume for i in self.composition.values if i.state!='gas']
+        used_volume=[i.volume for i in self.composition.values() if i.state!='gas']
         used_volume=sum(used_volume)
         residual_volume=self.volume-used_volume
-        for i in self.composition.values:
+        for i in self.composition.values():
             i.diffusion(residual_volume)
 
     def get_ions(self):
         ions={}
         if self.composition.get('H2O',None) is not None:
-            for i in self.composition.values:
+            for i in self.composition.values():
                 ions.update(i.ionization)
         return ions
 
@@ -697,7 +707,7 @@ class Mixture:
         Q=CmΔt
         '''
         Q=0
-        for i in self.composition.values:
+        for i in self.composition.values():
             Q+=i.SHC*i.mass*1
         return Q/self.mass
 
@@ -706,31 +716,36 @@ class Mixture:
         SHC=self.get_SHC() if SHC is None else SHC
         delta_t=heat/(SHC*self.mass)
         self.set_temp(self.degree_Celsius+delta_t)
-        for i in self.composition.values:
+        for i in self.composition.values():
             i.set_temp(i.degree_Celsius+delta_t)
             i.state=i.get_state()
 
     def materia_exchange(self,PureSubstance):
-        m={i.molecular_formula:i for i in PureSubstance}
-        m=pd.Series(m)
-        m1=pd.Series(self.composition)
-        n=m+m1
-        n.fillna(0)
-        self.composition=dict(n)
-        self.set_mass_charge(mass)
+        p=PureSubstance
+        p=pd.Series(p,index=[p.molecular_formula])
+        p0=pd.Series(self.composition)
+        p1=p0+p
+        p1.fillna(0)
+        self.composition=dict(p1)
+        self.set_mass_charge()
+
+
+    def __repr__(self):
+        return "Mixture: mass={},volume={},{}℃".\
+            format(self.mass,self.volume,self.degree_Celsius)
 
     def physical_law(self,law):
         '物理定律接口'
         pass
 
 class Matter(Mixture):
-    def __reaction_rate(self,T,env):
+    def __reaction_rate(self,T,**env):
         rate={}
         power_total=0
         for k in CHEMICAL_REACTION:
             reaction=k
             reactant,product=reaction.reactant,reaction.product
-            v=reaction.rate_equation(T,env)
+            v=reaction.rate_equation(T,**env)
             power=reaction.Qp*v
             power_total+=power
             for i,j in reacant.items():

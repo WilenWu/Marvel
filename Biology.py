@@ -5,7 +5,7 @@ import numpy as np
 
 from Marvel import Science
 from scipy import constants
-from Marvel.Science import Molecule,ChemicalReaction
+from Science import Molecule,ChemicalReaction
 UNITS.load_unit('ATP', 30.54, kJ=1, mol=-1)
 
 # 元素
