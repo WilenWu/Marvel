@@ -1,4 +1,4 @@
-# Marvel <img src="man/logo.jpg" width="10%" height="10%" align="right" />
+# Marvel <img src="man/IronMan.jpg" width="15%" height="15%" align="right" />
 *Create Marvel Universe*
 
 
@@ -31,18 +31,21 @@ regular tetrahedron|正四面体||`sqrt(2)/12a**3`|`sqrt(3)a**2`
 ### chemistry
 
 - 化学反应的本质是旧化学键断裂和新化学键形成的过程
-> chemical equation
-> s: solid(固体), l: liquid(液体), g: gas(气体), aq: Aqueous solution(溶液)
-> 化学计量数(stoichiometric number)：化学反应方程式中,参与反应的物质前的系数,称化学计量数
+> 物质形态(State):
+> s: solid(固体)
+> l: liquid(液体)
+> g: gas(气体)
+> aq: Aqueous solution(溶液)
+> 化学计量数(stoichiometric number)：化学反应方程式(chemical equation)中,参与反应的物质前的系数,称化学计量数
 
 - 反应是否进行由体系的吉布斯自由能(Gibbs free energy)变化确定
+ΔG < 0 : 自发反应
+ΔG = 0 : 不能反应
+ΔG > 0 : 逆反应自发进行
 ```
 ΔG(Gibbs free energy change) = ΔH - TΔS
 ΔS: entropy change
 T: Kelvin temperature
-ΔG < 0 : 自发反应
-ΔG = 0 : 不能反应
-ΔG > 0 : 逆反应自发进行
 ```
 - 反应热(reaction heat)为吸热或放热反应，完全由体系的反应焓变(reaction enthalpies)决定
 ```
