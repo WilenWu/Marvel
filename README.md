@@ -10,7 +10,7 @@
 ### geometry
 
 1D|中文|equation|length
----|---|---
+---|---|---|---
 archimedean spiral|阿基米德螺线|`r=aθ`|`0.5a(θ*sqrt(1+θ**2)+ln(θ+sqrt(1+θ**2)))`
 circular helix|圆柱螺旋线|`x=rcosθ,y=rsinθ,z=bθ`|`sqrt((2θr)**2+(bθ)**2)`
 
