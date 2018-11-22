@@ -4,60 +4,12 @@ import pandas as pd
 import numpy as np
 import re
 from scipy import constants
+from Physics import *
 from math import inf
-
-#-----------------subatomic particles
-
-class Electron:
-    def __init__(self,anti=False):
-        self.charge=1 if anti else -1
-        self.mass=constants.m_e/constants.atomic_mass
-    def __repr__(self):
-        return 'Electron'
-
-class Proton:
-    def __init__(self, anti=False):
-        self.charge = -1 if anti else 1
-        self.mass=constants.m_p/constants.atomic_mass
-    def __repr__(self):
-        return 'Proton'
-
-class Neutron:
-    def __init__(self, anti=False):
-        self.charge=0
-        self.mass=constants.m_u/constants.atomic_mass
-    def __repr__(self):
-        return 'Neutron'
-
-class Photon:
-    def __init__(self,frequency):
-        self.frequency=frequency
-        self.c=constants.c
-        self.wavelength=self.c/self.frequency
-
-        self.energy=constants.h*self.frequency
-        self.momentum=self.energy/self.c
-
-        self.ν=self.frequency
-        self.λ=self.wavelength
-        self.E=self.energy
-        self.h=self.momentum
-
-    def __repr__(self):
-        return 'Photon(ν={})'.format(self.frequency)
-
-class Field:
-    pass
-
-class ElectricField(Field):
-    pass
-
-class PhotonField(Field):
-    pass
 
 
 #----------------atom
-class Atom:
+class Atom(Fermion):
     def __init__(self,p,n,e=None,anti=False):
         e = p if e is None else e
         self.extra_nuclear_electron=e #核外电子数
@@ -93,7 +45,7 @@ ATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron']),axis=1)
 antiATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron'],anti=True),axis=1)
 
 #--------------------molecule
-class Molecule:
+class Molecule(Fermion):
     def __init__(self,formula,anti=False):
         '''
         :param formula: str
@@ -101,7 +53,7 @@ class Molecule:
         self.formula=formula
         self.name=MOLECULE_TABLE['name'].get(self.formula,None)
         self.standard_density=MOLECULE_TABLE['standard density'].get(self.formula,None)
-        self.atoms=self.get_atoms(self.formula)
+        self.atoms_dict,self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge()
         self.chemical_bonds,self.bonds_energy=self.get_bonds_energy()  #kJ/mol
@@ -110,44 +62,45 @@ class Molecule:
     def get_atoms(formula):
         def split_formula(formula):
             split_form = re.findall('[A-Z][a-z]?|\(.+\)|\d+', formula)
-            atoms = {}
+            atoms_dict = {}
             for i, key in enumerate(split_form):
                 if key.isnumeric() or key in list('^+-'):
                     next
                 elif i + 1 == len(split_form):
-                    atoms[key] = atoms.get(key, 0) + 1
+                    atoms_dict[key] = atoms_dict.get(key, 0) + 1
                 elif split_form[i + 1].isnumeric():
                     value = int(split_form[i + 1])
-                    atoms[key] = atoms.get(key, 0) + value
+                    atoms_dict[key] = atoms_dict.get(key, 0) + value
                 else:
-                    atoms[key] = atoms.get(key, 0) + 1
-            return atoms
+                    atoms_dict[key] = atoms_dict.get(key, 0) + 1
+            return atoms_dict
 
-        atoms = split_formula(formula)
+        atoms_dict = split_formula(formula)
 
-        for key in list(atoms):
+        for key in list(atoms_dict):
             if not key.isalpha():
-                value = atoms.pop(key)
+                value = atoms_dict.pop(key)
                 key = key.replace('(', '').replace(')', '')
                 sub_atoms = split_formula(key)
                 for key in list(sub_atoms):
-                    atoms[key] = atoms.get(key, 0) + sub_atoms[key]*value
-
-        return atoms
+                    atoms_dict[key] = atoms_dict.get(key, 0) + sub_atoms[key]*value
+        
+        atoms=[ATOMS[i].copy() for i in atoms_dict.keys()]
+        return atoms_dict,atoms
 
     def get_mass_charge(self,ionic_electron=0):
         anti=self.anti
-        atoms=self.atoms
+        atoms_dict=self.atoms_dict
 
         electron=Electron(anti)
         ionic_charge=electron.charge*ionic_electron
         ionic_mass=electron.mass*ionic_electron
 
-        if not set(atoms.keys()).issubset(set(ATOMS.index)):
+        if not set(atoms_dict.keys()).issubset(set(ATOMS.index)):
             return None,None
 
         mass=charge=0
-        for i,j in atoms.items():
+        for i,j in atoms_dict.items():
             atom=ATOMS[i] if not anti else antiATOMS[i]
             mass+=atom.mass*j
             charge+=atom.charge*j
@@ -174,7 +127,7 @@ class Ion(Molecule):
         self.formula=formula
         self.name=name
         self.ionic_electron=self.__ionic_electron()
-        self.atoms=self.get_atoms(self.formula)
+        self.atoms_dict_dict,self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge(self.ionic_electron)
     def __ionic_electron(self):
@@ -251,7 +204,7 @@ class ChemicalReaction:
 
     def rate_equation(self,Temp,concentration):
         '''
-        molecules,atoms or ions : float(mol/L), cover catalyst(催化剂),etc
+        molecules,atoms_dict or ions : float(mol/L), cover catalyst(催化剂),etc
         '''
         c = concentration  # mol/L
 

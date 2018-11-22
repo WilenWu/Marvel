@@ -6,6 +6,7 @@ import re
 from scipy import constants,linalg
 from sympy import symbols
 from math import pi,e,exp,inf
+from copy import deepcopy
 from itertools import combinations,permutations,product
 
 # System International(SI)
@@ -152,6 +153,67 @@ class Units:
         return 'Units'
 
 UNITS=Units()
+
+# Standard Model(SM)
+# fermion(费米子): quark(夸克) and lepton(轻子)
+# boson(玻色字): gluon(胶子), W and Z,photon,graviton,higgs(希格斯)
+
+class Fermion:
+    def copy(self):
+        return deepcopy(self)
+    
+class Boson:
+    def copy(self):
+        return deepcopy(self)
+    
+#-----------------subatomic particles
+
+class Electron(Fermion):
+    def __init__(self,anti=False):
+        self.charge=1 if anti else -1
+        self.mass=constants.m_e/constants.atomic_mass
+    def __repr__(self):
+        return 'Electron'
+
+class Proton(Fermion):
+    def __init__(self, anti=False):
+        self.charge = -1 if anti else 1
+        self.mass=constants.m_p/constants.atomic_mass
+    def __repr__(self):
+        return 'Proton'
+
+class Neutron(Fermion):
+    def __init__(self, anti=False):
+        self.charge=0
+        self.mass=constants.m_u/constants.atomic_mass
+    def __repr__(self):
+        return 'Neutron'
+
+class Photon(Boson):
+    def __init__(self,frequency):
+        self.frequency=frequency
+        self.c=constants.c
+        self.wavelength=self.c/self.frequency
+
+        self.energy=constants.h*self.frequency
+        self.momentum=self.energy/self.c
+
+        self.ν=self.frequency
+        self.λ=self.wavelength
+        self.E=self.energy
+        self.h=self.momentum
+
+    def __repr__(self):
+        return 'Photon(ν={})'.format(self.frequency)
+
+class Field:
+    pass
+
+class ElectricField(Field):
+    pass
+
+class PhotonField(Field):
+    pass
 #-----------------Physical law
 
 class PhysicalLaw:
@@ -257,12 +319,6 @@ class ThermodynamicLaw(PhysicalLaw):
         elif r>0:
             G=constants.gravity_constant
             return -G*M*mass/r
-
-def kg2mol(kg,relative_molecular_mass):
-    return kg / (relative_molecular_mass * constants.atomic_mass * constants.Avogadro)
-
-def mol2kg(mol,relative_molecular_mass):
-    return relative_molecular_mass * constants.atomic_mass * constants.Avogadro * mol
 
 def annihilate(self,others):
     '湮灭'

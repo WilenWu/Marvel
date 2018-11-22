@@ -1,15 +1,18 @@
 #-*- coding:utf8 -*-
 
-import pandas as pd
 import numpy as np
 from scipy import constants
-from math import pi,e,exp,inf
-from copy import copy
 from Physics import *
 from Chemistry import *
 
 # -------------------------------Pure Substance
-class PureSubstance:
+def kg2mol(kg,relative_molecular_mass):
+    return kg / (relative_molecular_mass * constants.atomic_mass * constants.Avogadro)
+
+def mol2kg(mol,relative_molecular_mass):
+    return relative_molecular_mass * constants.atomic_mass * constants.Avogadro * mol
+
+class PureSubstance(Fermion):
 
     def __init__(self,molecule,mass=None,amount=None,volume=None,temp=15):
         '''
@@ -91,9 +94,10 @@ class PureSubstance:
             
     def solubility(self,solvent):
         '溶解'
-        s=self.solubility_H2O/100*solvent.mass
-        mass=self.mass if s>=self.mass else s
-        return mass #kg
+        if solvent.molecular_formula=='H2O':
+            s=self.solubility_H2O/100*solvent.mass
+            mass=self.mass if s>=self.mass else s
+            return mass #kg
 
     def diffusion(self,volume):
         if self.state=='gas':
@@ -105,13 +109,6 @@ class PureSubstance:
         if self.volume is not None and self.state=='gas':
             return self.amount_of_substance*constants.gas_constant*self.degree_Kelvin/self.volume
 
-    def annihilate(self,others):
-        '湮灭'
-        if (not self.anti)==others.anti:
-            Δm=math.abs(self.mass-others.mass)
-            E=2*Δm*constants.c**2
-            return 2*Δm,E
-
     def get_standard_concentration(self):
         mass=self.standard_density/1000  #kg/dm3
         mol=self.get_amount_of_substance(mass)
@@ -120,16 +117,14 @@ class PureSubstance:
     def __repr__(self):
         '显示单质或化合物'
         name='Elementary Substance' if len(self.molecule.atoms)==1 else 'Compound'
-        return '{}({},{}kg,{:.1e}m3,{:.2f}℃)'\
-        .format(name,self.molecular_formula,self.mass,self.volume,self.degree_Celsius)
+        return '{}({}({}),{}kg,{:.1e}m3,{:.2f}℃)'\
+        .format(name,self.molecular_formula,self.state[0],self.mass,self.volume,self.degree_Celsius)
         
-    def copy(self):
-        return copy(self)
 
-unitPURE=MOLECULES.map(lambda x:PureSubstance(x,mass=1,volume=1/x.standard_density))
+unitPURE=MOLECULES.map(lambda x:PureSubstance(x.copy(),mass=1,volume=1/x.standard_density))
 
 #-----------------------------------Matter
-class Mixture:
+class Mixture(Fermion):
     def __init__(self,volume,composition):
         '''
         composition: tuple or list of PureSubstance
@@ -215,7 +210,7 @@ class Mixture:
             if i.molecular_formula in self.composition.keys():
                 self.composition[i.molecular_formula].materia_exchange(i)
             else:
-                self.composition[i.molecular_formula]=i.copy()
+                self.composition[i.molecular_formula]=i
         self.property_update()
         self.__temp_init()
 
@@ -239,7 +234,7 @@ class Matter(Mixture):
             v=reaction.rate_equation(Temp,env) ## mol/(L*s)
             power=reaction.Qp*v*volume*1000 #kJ/s
             power_total+=power
-            for i,j in reacant.items():
+            for i,j in reactant.items():
                 rate[i]=rate.get(i,0)-v*j*volume*1000
             for i,j in product.items():
                 rate[i]=rate.get(i,0)+v*j*volume*1000
@@ -252,25 +247,25 @@ class Matter(Mixture):
         for m in np.arange(0,Δt,dt):
             T=self.Temp
             env={i:j.amount_of_substance/(self.volume*1000) for i,j in self.composition.items()}
-            rate,power=__reaction_rate(T,env,self.volume)
+            rate,power=self.__reaction_rate(T,env,self.volume)
             t=dt if Δt-m>=dt else Δt-m
             
             p=[]
             subs={i:j*t for i,j in rate.items()}
             for i,j in subs.items():
-                m=MOLECULES[i]
-                mass=mol2kg(j,i.mass)
+                m=MOLECULES[i].copy()
+                mass=mol2kg(j,m.mass)
                 v=mass/m.standard_density
                 p.append(PureSubstance(m,mass=mass,volume=v,temp=self.degree_Celsius))
                 
-            self.materia_exchange(p) 
-            self.heat_transfer(power*t)
+            #self.materia_exchange(p) 
+            #self.heat_transfer(power*t)
 
-x,y,z=unitPURE[['H2','O2','H2O']]
-a=Mixture(10,[x,y,z])
-a.heat_transfer(-100)
+x,y,z=(i.copy() for i in unitPURE[['H2','O2','H2O']])
+a=Matter(2,[x,y,z])
+a.heat_transfer(100)
 
 a.materia_exchange([x,z])
-a.materia_exchange(unitPURE[:2])
 
+a.chemical_reaction_process(30)
 
