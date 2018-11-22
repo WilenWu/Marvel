@@ -1,4 +1,4 @@
-# Marvel <img src="man/IronMan.jpg" width="15%" height="15%" align="right" />
+# Marvel <img src="man/IronMan.jpg" width="20%" height="20%" align="right" />
 *Create Marvel Universe*
 
 
@@ -7,26 +7,36 @@
 ## Usage
 
 ## Theory
-### math
+### geometry
+
+1D|中文|equation|length
+---|---|---
+archimedean spiral|阿基米德螺线|`r=aθ`|`0.5a(θ*sqrt(1+θ**2)+ln(θ+sqrt(1+θ**2)))`
+circular helix|圆柱螺旋线|`x=rcosθ,y=rsinθ,z=bθ`|`sqrt((2θr)**2+(bθ)**2)`
+
 
 2D|中文|equation|aera|circumference
 ---|---|---|---|---
+equilateral triangle|正三角形||`sqrt(3)/4*edge**2`|`3*edge`
+rectangle|矩形||`ab`|`2(a+b)`
+square|正方形|`abs(x)+abs(y)=a`<br>`edge=sqrt(2)*a`|`2a**2`|`4*edge`
+rhombus|菱形|`abs(x/a)+abs(y/b)=1`<br>`edge=sqrt(a**2+b**2)`|`2ab`|`4*edge`
 circle|圆形|`x**2+y**2=r**2`|`πr**2`|`2πr`
 ellipse|椭圆|`x**2/a**2+y**2/b**2=1`|`πab`|`2πb+4(a-b)`
-rectangle|矩形||`ab`|`2(a+b)`
-square|正方形||`edge**2`|`4*edge`
-rhombus|菱形||`edge*height`|`4*edge`
-equilateral triangle|正三角形||`sqrt(3)/4*edge**2`|`3*edge`
+ring|圆环|`(x**2+y**2-R**2)(x**2+y**2-r**2)=0`|`π(R**2-r**2)`|`2π(R+r)`
 
 3D|中文|equation|volume|surface area
 ---|---|---|---|---
-cuboid|长方体||`abc`|`2*(ab+ac+bc)`
-cube|正方体|`edge**3`|`6*edge**2`
-ellipsoid|椭球体|`x**2/a**2+y**2/b**2+z**2/c**2=1`|`(4/3)πabc`|`(4/3)π(ab+bc+ca)`
-globe|球体|`x**2+y**2+z**2=r**2`|`(4/3)πr**3`|`4πr**2`
-cone|圆锥体||`(1/3)hπr**2`|`πr(r+sqrt(r**2+h**2))`
-cylinder|圆柱体||`hπr**2`|`2πr(r+h)`
 regular tetrahedron|正四面体||`sqrt(2)/12*edge**3`|`sqrt(3)*edge**2`
+cuboid|长方体||`abc`|`2*(ab+ac+bc)`
+cube|正方体||`edge**3`|`6*edge**2`
+regular octahedron|正八面体|`abs(x)+abs(y)+abs(z)=a`<br>`edge=sqrt(2)*a`|`(4/3)a**3`|`4*sqrt(3)*a**2`
+rhombus octahedron|八面菱体|`abs(x/a)+abs(y/b)+abs(z/c)=1`|`(4/3)abc`|`4abc*sqrt(1/a**2+1/b**2+1/c**2)`
+ellipsoid|椭球体|`(x/a)**2+(y/b)**2+(z/c)**2=1`|`(4/3)πabc`|`(4/3)π(ab+bc+ca)`
+globe|球体|`x**2+y**2+z**2=r**2`|`(4/3)πr**3`|`4πr**2`
+cone|圆锥体|`(x/r)**2+(y/r)**2=(z/h)**2 (0<=z<=h)`|`(1/3)hπr**2`|`πr(r+sqrt(r**2+h**2))`
+cylinder|圆柱体|`x**2+y**2=r**2 (0<=z<=h)`|`hπr**2`|`2πr(r+h)`
+torus|圆环|`(R-sqrt(x**2+y**2))**2+z**2=r**2`|`(2πR)(2πr)`|`(πr**2)(2πR)`
 
 ### chemistry
 

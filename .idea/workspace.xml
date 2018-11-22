@@ -12,21 +12,24 @@
     <session id="1956878787">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
-          <entry key="project.closed" value="4" />
+          <entry key="project.closed" value="5" />
           <entry key="project.open.time.0" value="1" />
           <entry key="project.open.time.1" value="1" />
+          <entry key="project.open.time.22" value="1" />
           <entry key="project.open.time.7" value="1" />
           <entry key="project.open.time.9" value="1" />
-          <entry key="project.opened" value="4" />
+          <entry key="project.opened" value="5" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
+          <entry key="md" value="1" />
           <entry key="py" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
+          <entry key="Markdown" value="1" />
           <entry key="Python" value="1" />
         </counts>
       </usages-collector>
@@ -45,11 +48,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/Science.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-425">
-              <caret line="738" column="30" lean-forward="true" selection-start-line="738" selection-start-column="30" selection-end-line="738" selection-end-column="30" />
+            <state relative-caret-position="17">
+              <caret line="738" column="12" selection-start-line="738" selection-start-column="12" selection-end-line="738" selection-end-column="12" />
               <folding>
                 <element signature="e#264#4897#0" />
                 <element signature="e#4973#5145#0" />
@@ -62,9 +65,19 @@
                 <element signature="e#11304#11363#0" />
                 <element signature="e#11400#11993#0" />
                 <element signature="e#12037#13684#0" />
-                <element signature="e#14016#18000#0" />
-                <element signature="e#18152#20099#0" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/README.md">
+          <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+            <state split_layout="SPLIT">
+              <first_editor relative-caret-position="-561">
+                <caret line="9" column="8" lean-forward="true" selection-start-line="9" selection-start-column="8" selection-end-line="9" selection-end-column="8" />
+              </first_editor>
+              <second_editor />
             </state>
           </provider>
         </entry>
@@ -95,7 +108,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -107,6 +119,7 @@
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -139,9 +152,9 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-7" y="-7" width="1295" height="695" extended-state="6" />
+    <frame x="-8" y="-8" width="1382" height="744" extended-state="6" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" weight="0.2494043" />
+      <window_info content_ui="combo" id="Project" order="0" weight="0.24925596" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -154,7 +167,7 @@
       <window_info anchor="bottom" id="Version Control" order="7" weight="0.3295082" />
       <window_info anchor="bottom" id="Terminal" order="8" weight="0.3295082" />
       <window_info anchor="bottom" id="Event Log" order="9" side_tool="true" />
-      <window_info active="true" anchor="bottom" id="Python Console" order="10" visible="true" weight="0.26868328" />
+      <window_info anchor="bottom" id="Python Console" order="10" weight="0.26841244" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
@@ -192,8 +205,8 @@
   <component name="editorHistoryManager">
     <entry file="file://$PROJECT_DIR$/Science.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-425">
-          <caret line="738" column="30" lean-forward="true" selection-start-line="738" selection-start-column="30" selection-end-line="738" selection-end-column="30" />
+        <state relative-caret-position="17">
+          <caret line="738" column="12" selection-start-line="738" selection-start-column="12" selection-end-line="738" selection-end-column="12" />
           <folding>
             <element signature="e#264#4897#0" />
             <element signature="e#4973#5145#0" />
@@ -206,9 +219,17 @@
             <element signature="e#11304#11363#0" />
             <element signature="e#11400#11993#0" />
             <element signature="e#12037#13684#0" />
-            <element signature="e#14016#18000#0" />
-            <element signature="e#18152#20099#0" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/README.md">
+      <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
+        <state split_layout="SPLIT">
+          <first_editor relative-caret-position="-561">
+            <caret line="9" column="8" lean-forward="true" selection-start-line="9" selection-start-column="8" selection-end-line="9" selection-end-column="8" />
+          </first_editor>
+          <second_editor />
         </state>
       </provider>
     </entry>

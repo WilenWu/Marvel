@@ -10,7 +10,7 @@ from noise import pnoise2,pnoise3
 class cube:
     pass
 
-    
+
 def timer(func):
     import datetime
     from functools import wraps
