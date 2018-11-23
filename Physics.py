@@ -326,3 +326,4 @@ def annihilate(self,others):
         Δm=math.abs(self.mass-others.mass)
         E=2*Δm*constants.c**2
         return 2*Δm,E
+    

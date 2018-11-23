@@ -1,11 +1,10 @@
 #-*- coding:utf8 -*-
-
-import pandas as pd
 import numpy as np
 import re
 from scipy import constants
-from Physics import *
-from math import inf
+from Marvel import PERIODIC_TABLE,CHEMICAL_BOND,MOLECULE_TABLE,CHEMICAL_REACTION
+from Marvel.Physics import *
+
 
 
 #----------------atom
@@ -38,9 +37,6 @@ class Atom(Fermion):
         return 'Atom({p},{n})'.format(p=self.protons,n=self.neutrons)
 
 
-#----------------periodic_table
-PERIODIC_TABLE=pd.read_excel('Init.xlsx',sheet_name='periodic_table')
-PERIODIC_TABLE.set_index(keys='element', inplace=True)
 ATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron']),axis=1)
 antiATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron'],anti=True),axis=1)
 
@@ -139,24 +135,7 @@ class Ion(Molecule):
     def __repr__(self):
         return "Ion({})".format(self.formula)
 
-# chemical bond: ionic bond,covalent bond and metallic bond
-CHEMICAL_BOND=pd.read_excel('Init.xlsx',sheet_name='chemical_bond')
-def __reverse(x):
-    if x in ['N-H..O','N..H-O']:
-        return None
-    else:
-        x=re.findall('[A-Z][a-z]?|[-=Ξ]',x)
-        x.reverse()
-        return ''.join(x)
-__CB=CHEMICAL_BOND.copy()
-__CB['bond']=__CB['bond'].map(__reverse)
-CHEMICAL_BOND=CHEMICAL_BOND.append(__CB.dropna()).drop_duplicates()
-CHEMICAL_BOND=pd.Series(CHEMICAL_BOND['energy(KJ/mol)'].values,index=CHEMICAL_BOND['bond'])
 
-MOLECULE_TABLE=pd.read_excel('Init.xlsx',sheet_name='molecule')
-MOLECULE_TABLE.loc[:,['bond','ionization']]=MOLECULE_TABLE.loc[:,['bond','ionization']].applymap(eval)
-MOLECULE_TABLE.replace('Inf', inf, inplace=True)
-MOLECULE_TABLE.set_index(keys='formula', inplace=True)
 
 MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
 antiMOLECULES=MOLECULE_TABLE.index.to_series().map(lambda x:Molecule(x,anti=True))
@@ -204,7 +183,8 @@ class ChemicalReaction:
 
     def rate_equation(self,Temp,concentration):
         '''
-        molecules,atoms_dict or ions : float(mol/L), cover catalyst(催化剂),etc
+        concentration: dict
+        molecules,atoms or ions : float(mol/L)
         '''
         c = concentration  # mol/L
 
@@ -220,8 +200,4 @@ class ChemicalReaction:
     def __repr__(self):
         return "ChemicalReaction({})".format(self.equation)
 
-
-#list of reactions
-CHEMICAL_REACTION=pd.read_excel('Init.xlsx',sheet_name='chemical_equation')
-CHEMICAL_REACTION.set_index(keys='equation', inplace=True)
 CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(ChemicalReaction)
