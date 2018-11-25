@@ -163,6 +163,7 @@ class Fermion:
         return deepcopy(self)
     
 class Boson:
+    spin=1
     def copy(self):
         return deepcopy(self)
     
@@ -170,22 +171,50 @@ class Boson:
 
 class Electron(Fermion):
     def __init__(self,anti=False):
+        self.symbol='e'
+        self.spin=1/2
+        self.magnetic_moment=None
+        self.half_life=None
         self.charge=1 if anti else -1
         self.mass=constants.m_e/constants.atomic_mass
     def __repr__(self):
         return 'Electron'
+    
+class Neutrino(Fermion):
+    '中微子'
+    def __init__(self, anti=False):
+        self.symbol='v'
+        self.spin=1/2
+        self.magnetic_moment=-1838.28197234
+        self.half_life=None
+        self.charge=0
+        self.mass=None  
 
 class Proton(Fermion):
     def __init__(self, anti=False):
+        self.symbol='p'
+        self.spin=1/2
+        self.magnetic_moment=2.7928473508
+        self.half_life=32661417598.559998
         self.charge = -1 if anti else 1
         self.mass=constants.m_p/constants.atomic_mass
     def __repr__(self):
         return 'Proton'
 
 class Neutron(Fermion):
-    def __init__(self, anti=False):
+    def __init__(self, anti=False,free=False):
+        self.symbol='n'
+        self.spin=1/2
+        self.magnetic_moment=-1.91304273
+        self.half_life=611
         self.charge=0
         self.mass=constants.m_u/constants.atomic_mass
+        
+    def radioactive_decay(self):
+        anti=self.anti
+        if self.free:
+            return {Proton(anti),Electron(anti),Neutrino(-anti)}
+    
     def __repr__(self):
         return 'Neutron'
 

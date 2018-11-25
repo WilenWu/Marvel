@@ -19,7 +19,7 @@ circular helix|圆柱螺旋线|`x=rcosθ,y=rsinθ,z=bθ`|`sqrt((2θr)**2+(bθ)**
 ---|---|---|---|---
 equilateral triangle|正三角形||`sqrt(3)/4*edge**2`|`3*edge`
 rectangle|矩形||`ab`|`2(a+b)`
-square|正方形|`abs(x)+abs(y)=a`<br>`edge=sqrt(2)*a`|`2a**2`|`4*edge`
+square|正方形|`abs(x)+abs(y)=a`<br>`edge=sqrt(2)*a`|`edge**2`|`4*edge`
 rhombus|菱形|`abs(x/a)+abs(y/b)=1`<br>`edge=sqrt(a**2+b**2)`|`2ab`|`4*edge`
 circle|圆形|`x**2+y**2=r**2`|`πr**2`|`2πr`
 ellipse|椭圆|`x**2/a**2+y**2/b**2=1`|`πab`|`2πb+4(a-b)`
@@ -29,7 +29,7 @@ ring|圆环|`(x**2+y**2-R**2)(x**2+y**2-r**2)=0`|`π(R**2-r**2)`|`2π(R+r)`
 ---|---|---|---|---
 regular tetrahedron|正四面体||`sqrt(2)/12*edge**3`|`sqrt(3)*edge**2`
 cuboid|长方体||`abc`|`2*(ab+ac+bc)`
-cube|正方体||`edge**3`|`6*edge**2`
+cube|正方体|`abs(x)+abs(y)=a (0<=z<=a)`<br>`edge=sqrt(2)*a`|`edge**3`|`6*edge**2`
 regular octahedron|正八面体|`abs(x)+abs(y)+abs(z)=a`<br>`edge=sqrt(2)*a`|`(4/3)a**3`|`4*sqrt(3)*a**2`
 rhombus octahedron|八面菱体|`abs(x/a)+abs(y/b)+abs(z/c)=1`|`(4/3)abc`|`4abc*sqrt(1/a**2+1/b**2+1/c**2)`
 ellipsoid|椭球体|`(x/a)**2+(y/b)**2+(z/c)**2=1`|`(4/3)πabc`|`(4/3)π(ab+bc+ca)`

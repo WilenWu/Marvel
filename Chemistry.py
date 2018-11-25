@@ -5,8 +5,6 @@ from scipy import constants
 from Marvel import PERIODIC_TABLE,CHEMICAL_BOND,MOLECULE_TABLE,CHEMICAL_REACTION
 from Marvel.Physics import *
 
-
-
 #----------------atom
 class Atom(Fermion):
     def __init__(self,p,n,e=None,anti=False):
@@ -49,6 +47,7 @@ class Molecule(Fermion):
         self.formula=formula
         self.name=MOLECULE_TABLE['name'].get(self.formula,None)
         self.standard_density=MOLECULE_TABLE['standard density'].get(self.formula,None)
+        self.SHC=MOLECULE_TABLE['specific_heat_capacity kJ/(mol*K)'].get(self.formula,None)
         self.atoms_dict,self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge()
@@ -169,8 +168,9 @@ class ChemicalReaction:
                     y[m]=1
             return y
 
-        reacant,product=equation.split('=')
-        return equation_split(reacant),equation_split(product)
+        reactant,product=equation.split('=')
+        reactant={i:-j for i,j in equation_split(reactant).items()}
+        return reactant,equation_split(product)
 
     def reaction_enthalpies(self):
         def bolds_energy(molecule_dict):
@@ -179,23 +179,27 @@ class ChemicalReaction:
                 bolds_energy+=MOLECULES[i].bonds_energy*molecule_dict[i]
             return bolds_energy #kJ/mol
 
-        return bolds_energy(self.reactant)-bolds_energy(self.product)
+        return -bolds_energy(self.reactant)-bolds_energy(self.product)
 
-    def rate_equation(self,Temp,concentration):
+    def rate_constant(self,Temp):
         '''
-        concentration: dict
-        molecules,atoms or ions : float(mol/L)
+        k = A*exp(-Ea/(RT))
         '''
-        c = concentration  # mol/L
-
         R = constants.gas_constant/1000 # kJ/(mol*K)
         A,Ea=self.A,self.Ea #kJ/mol
-        k = A*np.exp(-Ea/(R*Temp))
-        tmp=1
+        return A*np.exp(-Ea/(R*Temp))
+    
+    def rate_equation(self,Temp,env):
+        '''
+        env(dict): reactant concentration, float(mol/L)
+        aA+bB=cC+dD
+        v = k([A]*[B])**2
+        '''
+        k=self.rate_constant(Temp)
+        v=k*1000
         for i,j in self.reactant.items():
-            tmp*=c.get(i,0)**j
-        v=k*tmp # mol/(cm3*s)
-        return v*1000 # mol/(L*s)
+            v*=env.get(i,0)**2
+        return v
 
     def __repr__(self):
         return "ChemicalReaction({})".format(self.equation)
