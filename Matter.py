@@ -2,7 +2,7 @@
 
 import numpy as np
 from scipy import constants
-from scipy.integrate import odeint
+from scipy.integrate import odeint,solve_ivp
 from Marvel.Physics import *
 from Marvel.Chemistry import *
 
@@ -37,7 +37,7 @@ class PureSubstance(Fermion):
         self.melting_point=self.physical_property('melting_point')  #熔点
         self.boiling_point=self.physical_property('boiling_point')  #沸点
         self.solubility_H2O=self.physical_property('solubility')  #溶解度(g/100g H2O)
-        self.SHC=self.physical_property('specific_heat_capacity kJ/(mol*K)')  #比热容
+        self.SHC=self.physical_property('specific_heat_capacity kJ/(kg*K)')  #比热容
         self.ionization=self.physical_property('ionization') #离子集
 
         self.set_temp(temp)
@@ -190,7 +190,7 @@ class Mixture(Fermion):
         residual_volume=self.residual_volume
         if len(gas_list)>0 and residual_volume>0:
             gas_mol=sum(gas_list)
-            return gas_mol*constants.gas_constant*self.degree_Kelvin/residual_volume
+            return gas_mol*constants.gas_constant*self.degree_Kelvin/residual_volume #Pa
         
     def get_ions(self):
         ions=set()
@@ -242,32 +242,36 @@ class Mixture(Fermion):
 
 class Matter(Mixture):
     
-    def _reaction_rate(self,Y0,t,keys,reactions):
+    @staticmethod
+    def _reaction_rate(t,Y0,keys,reactions):
         '''for Differential Equations
         env: Q,T,*X
         '''
         Q,T,*X=Y0
         X=dict(zip(keys,X))
         Q_T={i:mol2kg(j,MOLECULES[i].mass) for i,j in X.items()} #kg/L
-        Q_T=[j*MOLECULES[i].SHC for i,j in Q_T.items()] #kJ/(L*T) 每L物质上升1K所需的热量kJ
+        Q_T={i:round(j,5) for i,j in Q_T.items()} # correction error(<=1e-6)
+        Q_T=[j*MOLECULES[i].SHC for i,j in Q_T.items()] #kJ/(L*K) 每L物质上升1K所需的热量kJ
         Q_T=sum(Q_T)
         
-        dQ=0   #kJ/(L*s)
-        dX={}  #mol/(L*s)
+        dQ=0   #dQ/dt kJ/(L*s)
+        dX={}  #dX/dt mol/(L*s)
         for i in reactions:
             v=i.rate_equation(T,X) # mol/(L*s)
             dQ+=-i.Qp*v # kJ/(L*s)
             dX[i.equation]={m:n*v for m,n in dict(i.reactant,**i.product).items()}
-        dT=dQ/Q_T #T/s
+        dT=dQ/Q_T #dT/dt K/s
         
         dX=pd.DataFrame(dX)
         dX.fillna(0)
         dX=dX.sum(axis=1)
+        dX=dX.reindex(index=keys)
         return np.concatenate(([dQ],[dT],dX.values))
 
-    def _reaction_process(self,Δt):
+    def _reaction_process(self,Δt,t0=0):
         '''
         Δt(sec): tuple, list, array..
+        t0: initial time,default 0
         
         Linear Differential Equations(线性微分方程组):
         Reaction:R1,R2...
@@ -283,66 +287,73 @@ class Matter(Mixture):
               
         init: Q=0,T=Temp,[reactant],[product]=0
         '''
-        reactants=CHEMICAL_REACTION.map(lambda x:set(x.reactant))
-        products=CHEMICAL_REACTION.map(lambda x:set(x.product))
-
         volume=self.volume
- 
         reactants=CHEMICAL_REACTION.map(lambda x:set(x.reactant))
         products=CHEMICAL_REACTION.map(lambda x:set(x.product))
         
         env=set(self.composition)       
         while True:
             reactions=reactants.map(lambda x:x.issubset(env))
-            for i in products[reactions]:
+            for i in products[reactions.values]:
                 env.update(i)       
             if reactions.sum()==reactants.map(lambda x:x.issubset(env)).sum():
                 break
         
         reactions=CHEMICAL_REACTION[reactions.values]
         amount={i:j.amount_of_substance for i,j in self.composition.items()} # mol
-        amount={i:round(j,6) for i,j in amount.items()} # 修正函数返回值微误差
         env={i:amount.get(i,0)/(volume*1000) for i in env} # mol/L
         
-        Y0=(0,)+(a.Temp,)+tuple(env.values()) #初始
-        Y=odeint(self._reaction_rate,Y0,Δt,args=(env.keys(),reactions))
-        heat=pd.Series(Y[:,0]*volume,index=Δt,name='reaction heat') #kJ
-        Temp=pd.Series(Y[:,1],index=Δt,name='Temp') #K
-        comp=pd.DataFrame(Y[:,2:].T,index=env.keys(),columns=Δt) #mol/L
+        t=Δt if Δt[0]==t0 else (t0,)+tuple(Δt)
+        Y0=(0,)+(a.Temp,)+tuple(env.values()) # initial condttions
+        def _reaction_rate(t,Y0):
+            return self._reaction_rate(t,Y0,env.keys(),reactions)
+        Y=solve_ivp(_reaction_rate,t,Y0)
+#        Y=odeint(self._reaction_rate,Y0,t,tfirst=True,args=(env.keys(),reactions))
+#        heat=pd.Series(Y[:,0]*volume*1000,index=t,name='reaction heat') #kJ
+#        Temp=pd.Series(Y[:,1],index=t,name='Temp') #K
+#        comp=pd.DataFrame(Y[:,2:].T,index=env.keys(),columns=t) #mol/L
 
-        return heat,Temp,comp
+        return Y
 
-    def chemical_reaction(self,Δt):
-        'Δt(sec): a collection of some kind'
-        heat,Temp,comp=self._reaction_process(Δt)
-        heat=float(heat[-1])
-        temp=float(Temp[-1])-273.15
-        comp=comp[Δt]
-
-        comp_density={i:j.density for i,j in self.composition}        
-        self.composition={}
-        for i,j in comp.items():
-            m=MOLECULES[i].copy()
-            density=comp_density.get(i,m.standard_density)
-            amount=j*self.volume
-            volume=mol2kg(amount,m.mass)/density 
-            pure=PureSubstance(m,amount=amount,volume=volume,temp=temp)
-            self.composition[i]=pure
-            
-        self.set_temp(temp)
-        self.set_residual_volume()
-        self.property_update()
+#    def chemical_reaction(self,Δt,t0=0):
+#        'Δt(sec): a collection of some kind'
+#        heat,Temp,comp=self._reaction_process(Δt,t0)
+#        heat=float(heat.iloc[-1])
+#        temp=float(Temp.iloc[-1])-273.15
+#        comp=comp.iloc[:,-1]
+#
+#        comp_density={i:j.density for i,j in self.composition.items()}        
+#        self.composition={}
+#        for i,j in comp.items():
+#            amount=j*self.volume*1000
+#            if amount>1e-7:
+#                m=MOLECULES[i].copy()
+#                density=comp_density.get(i,m.standard_density)
+#                volume=mol2kg(amount,m.mass)/density 
+#                pure=PureSubstance(m,amount=amount,volume=volume,temp=temp)
+#                self.composition[i]=pure
+#        self.set_temp(temp)
+#        self.set_residual_volume()
+#        self.property_update()
 
             
 
 x,y,z=(i.copy() for i in unitPURE[['H2','O2','H2O']])
 a=Matter(0.01,[x,y,z])
-a.heat_transfer(2000)
+a.heat_transfer(5000)
 a.materia_exchange([x,z])
 
 print(a.composition)
-t=[100]
-heat,temp,comp=a._reaction_process(t)
-print(temp)
-print(comp)
+print(a.mass)
+t=[0.01]
 
+y=a._reaction_process(t)
+#heat=float(heat.iloc[-1])
+#temp=float(Temp.iloc[-1])-273.15
+#comp=comp.iloc[:,-1]
+#print(comp)
+#print(comp*a.volume)
+#
+#a.chemical_reaction(t)
+#print(a.mass)
+#a.composition

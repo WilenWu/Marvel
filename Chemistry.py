@@ -47,7 +47,7 @@ class Molecule(Fermion):
         self.formula=formula
         self.name=MOLECULE_TABLE['name'].get(self.formula,None)
         self.standard_density=MOLECULE_TABLE['standard density'].get(self.formula,None)
-        self.SHC=MOLECULE_TABLE['specific_heat_capacity kJ/(mol*K)'].get(self.formula,None)
+        self.SHC=MOLECULE_TABLE['specific_heat_capacity kJ/(kg*K)'].get(self.formula,None)
         self.atoms_dict,self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge()
@@ -196,10 +196,10 @@ class ChemicalReaction:
         v = k([A]*[B])**2
         '''
         k=self.rate_constant(Temp)
-        v=k*1000
+        v=k
         for i,j in self.reactant.items():
             v*=env.get(i,0)**2
-        return v
+        return v # mol/(L*s)
 
     def __repr__(self):
         return "ChemicalReaction({})".format(self.equation)
