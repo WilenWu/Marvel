@@ -8,10 +8,12 @@ from Marvel.Chemistry import *
 
 # -------------------------------Pure Substance
 def kg2mol(kg,relative_molecular_mass):
-    return kg / (relative_molecular_mass * constants.atomic_mass * constants.Avogadro)
+    mol=kg / (relative_molecular_mass * constants.atomic_mass * constants.Avogadro)
+    return mol
 
 def mol2kg(mol,relative_molecular_mass):
-    return relative_molecular_mass * constants.atomic_mass * constants.Avogadro * mol
+    kg=relative_molecular_mass * constants.atomic_mass * constants.Avogadro * mol
+    return kg
 
 class PureSubstance(Fermion):
 
@@ -92,7 +94,7 @@ class PureSubstance(Fermion):
             self.set_mass_charge(self.mass+other.mass)
             self.volume=self.volume+other.volume
             self.set_temp(temp)
-            
+
     def solubility(self,solvent):
         '溶解'
         if solvent.molecular_formula=='H2O':
@@ -120,9 +122,17 @@ class PureSubstance(Fermion):
         name='Elementary Substance' if len(self.molecule.atoms)==1 else 'Compound'
         return '{}({}({}),{:.4f}kg,{:.4f}m3,{:.2f}℃)'\
         .format(name,self.molecular_formula,self.state[0],self.mass,self.volume,self.degree_Celsius)
-        
 
-unitPURE=MOLECULES.map(lambda x:PureSubstance(x.copy(),mass=1,volume=1/x.standard_density))
+
+def standard_pureSubstance(molecular_formula,mass=None,amount=None,temp=15):
+    m=MOLECULES[molecular_formula].copy()
+    density=m.standard_density
+    if mass is not None:
+        volume=mass/density
+    else:
+        volume=mol2kg(amount,m.mass)/density
+    return PureSubstance(m,mass=mass,amount=amount,volume=volume,temp=temp)
+
 
 #-----------------------------------Matter
 class Mixture(Fermion):
@@ -174,24 +184,24 @@ class Mixture(Fermion):
     def set_residual_volume(self):
         used_volume=[i.volume for i in self.composition.values() if i.state!='gas']
         used_volume=sum(used_volume)
-        
+
         if self.volume-used_volume<=0:
             self.volume=used_volume+self.volume*0.01
-        self.residual_volume=self.volume-used_volume        
-        
+        self.residual_volume=self.volume-used_volume
+
     def diffusion(self):
         '扩散'
         residual_volume=self.residual_volume
         for i in self.composition.values():
             i.diffusion(residual_volume)
-            
+
     def get_gas_pressure(self):
         gas_list=[i.amount_of_substance for i in self.composition.values() if i.state=='gas']
         residual_volume=self.residual_volume
         if len(gas_list)>0 and residual_volume>0:
             gas_mol=sum(gas_list)
             return gas_mol*constants.gas_constant*self.degree_Kelvin/residual_volume #Pa
-        
+
     def get_ions(self):
         ions=set()
         if self.composition.get('H2O',None) is not None:
@@ -226,7 +236,7 @@ class Mixture(Fermion):
                 self.composition[i.molecular_formula].materia_exchange(i)
             else:
                 self.composition[i.molecular_formula]=i
-        
+
         self.set_residual_volume()
         self.property_update()
         self.__temp_init()
@@ -236,12 +246,9 @@ class Mixture(Fermion):
         return "Mixture({:.4f}kg,{:.4f}m3,{:.2f}℃)".\
             format(self.mass,self.volume,self.degree_Celsius)
 
-    def physical_law(self,law):
-        '物理定律接口'
-        pass
 
 class Matter(Mixture):
-    
+
     @staticmethod
     def _reaction_rate(t,Y0,keys,reactions):
         '''for Differential Equations
@@ -250,10 +257,9 @@ class Matter(Mixture):
         Q,T,*X=Y0
         X=dict(zip(keys,X))
         Q_T={i:mol2kg(j,MOLECULES[i].mass) for i,j in X.items()} #kg/L
-        Q_T={i:round(j,5) for i,j in Q_T.items()} # correction error(<=1e-6)
         Q_T=[j*MOLECULES[i].SHC for i,j in Q_T.items()] #kJ/(L*K) 每L物质上升1K所需的热量kJ
         Q_T=sum(Q_T)
-        
+
         dQ=0   #dQ/dt kJ/(L*s)
         dX={}  #dX/dt mol/(L*s)
         for i in reactions:
@@ -261,7 +267,7 @@ class Matter(Mixture):
             dQ+=-i.Qp*v # kJ/(L*s)
             dX[i.equation]={m:n*v for m,n in dict(i.reactant,**i.product).items()}
         dT=dQ/Q_T #dT/dt K/s
-        
+
         dX=pd.DataFrame(dX)
         dX=dX.sum(axis=1)
         dX=dX.reindex(index=keys)
@@ -271,37 +277,37 @@ class Matter(Mixture):
         '''
         Δt(sec): tuple, list, array..
         t0: initial time,default 0
-        
+
         Linear Differential Equations(线性微分方程组):
         Reaction:R1,R2...
         d[Z]/dt=Σzv
         ρ=m/v
-        
+
         dQ/dt=(Qp1*v1+Qp2*v2+...)  kJ/(L*s)
         dT/dt=1/(1000Cρ)*dQ/dt=1/(1000Cρ)*(Qp1*v1+Qp2*v2+...) K/s
-        
+
         d[A]/dt=(a1*v1+a2*v2+...)
         d[B]/dt=(b1*v1+b2*v2+...)
-        d[C]/dt=...       
-              
+        d[C]/dt=...
+
         init: Q=0,T=Temp,[reactant],[product]=0
         '''
         volume=self.volume
         reactants=CHEMICAL_REACTION.map(lambda x:set(x.reactant))
         products=CHEMICAL_REACTION.map(lambda x:set(x.product))
-        
-        env=set(self.composition)       
+
+        env=set(self.composition)
         while True:
             reactions=reactants.map(lambda x:x.issubset(env))
             for i in products[reactions.values]:
-                env.update(i)       
+                env.update(i)
             if reactions.sum()==reactants.map(lambda x:x.issubset(env)).sum():
                 break
-        
+
         reactions=CHEMICAL_REACTION[reactions.values]
         amount={i:j.amount_of_substance for i,j in self.composition.items()} # mol
         env={i:amount.get(i,0)/(volume*1000) for i in env} # mol/L
-        
+
         t=Δt if Δt[0]==t0 else (t0,)+tuple(Δt)
         Y0=(0,)+(a.Temp,)+tuple(env.values()) # initial condttions
         def _reaction_rate(t,Y0):
@@ -325,34 +331,31 @@ class Matter(Mixture):
         self.composition={}
         for i,j in comp.items():
             amount=j*self.volume*1000
-            if amount>1e-7:
+            if amount>0:
                 m=MOLECULES[i].copy()
                 density=comp_density.get(i,m.standard_density)
                 volume=mol2kg(amount,m.mass)/density
                 pure=PureSubstance(m,amount=amount,volume=volume,temp=temp)
                 self.composition[i]=pure
+
         self.set_temp(temp)
         self.set_residual_volume()
         self.property_update()
 
-            
+# debug
+from numpy.random import randint
+X=[]
+for i in ['H2','O2','H2O','NH3','CaO','C']:
+    X.append(standard_pureSubstance(i,randint(1,5)))
 
-x,y,z=(i.copy() for i in unitPURE[['H2','O2','H2O']])
-a=Matter(0.01,[x,y,z])
+a=Matter(0.1,X)
 a.heat_transfer(5000)
-a.materia_exchange([x,z])
+a.materia_exchange(X[:3:1])
 
 print(a.composition)
 print(a.mass)
-t=(0.01,)
+t=(0.05,)
 
-heat,Temp,comp=a._reaction_process(t)
-heat=float(heat.iloc[-1])
-temp=float(Temp.iloc[-1])-273.15
-comp=comp.iloc[:,-1]
-print(comp)
-print(comp*a.volume)
-
-a.chemical_reaction(t)
+a.chemical_reaction(t,t0=0.02)
 print(a.mass)
 a.composition

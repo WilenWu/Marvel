@@ -161,11 +161,17 @@ UNITS=Units()
 class Fermion:
     def copy(self):
         return deepcopy(self)
+    def physical_law(self,law):
+        '物理定律接口'
+        pass
     
 class Boson:
     spin=1
     def copy(self):
         return deepcopy(self)
+    def physical_law(self,law):
+        '物理定律接口'
+        pass
     
 #-----------------subatomic particles
 
