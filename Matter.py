@@ -263,7 +263,6 @@ class Matter(Mixture):
         dT=dQ/Q_T #dT/dt K/s
         
         dX=pd.DataFrame(dX)
-        dX.fillna(0)
         dX=dX.sum(axis=1)
         dX=dX.reindex(index=keys)
         return np.concatenate(([dQ],[dT],dX.values))
@@ -307,34 +306,34 @@ class Matter(Mixture):
         Y0=(0,)+(a.Temp,)+tuple(env.values()) # initial condttions
         def _reaction_rate(t,Y0):
             return self._reaction_rate(t,Y0,env.keys(),reactions)
-        Y=solve_ivp(_reaction_rate,t,Y0)
-#        Y=odeint(self._reaction_rate,Y0,t,tfirst=True,args=(env.keys(),reactions))
-#        heat=pd.Series(Y[:,0]*volume*1000,index=t,name='reaction heat') #kJ
-#        Temp=pd.Series(Y[:,1],index=t,name='Temp') #K
-#        comp=pd.DataFrame(Y[:,2:].T,index=env.keys(),columns=t) #mol/L
+        Y=solve_ivp(_reaction_rate,t,Y0,method='RK23')
+        #Y=odeint(self._reaction_rate,Y0,t,tfirst=True,args=(env.keys(),reactions))
+        heat=pd.Series(Y.y[0,:].T*volume*1000,index=Y.t,name='reaction heat') #kJ
+        Temp=pd.Series(Y.y[1,:].T,index=Y.t,name='Temp') #K
+        comp=pd.DataFrame(Y.y[2:,:],index=env.keys(),columns=Y.t) #mol/L
 
-        return Y
+        return heat,Temp,comp
 
-#    def chemical_reaction(self,Δt,t0=0):
-#        'Δt(sec): a collection of some kind'
-#        heat,Temp,comp=self._reaction_process(Δt,t0)
-#        heat=float(heat.iloc[-1])
-#        temp=float(Temp.iloc[-1])-273.15
-#        comp=comp.iloc[:,-1]
-#
-#        comp_density={i:j.density for i,j in self.composition.items()}        
-#        self.composition={}
-#        for i,j in comp.items():
-#            amount=j*self.volume*1000
-#            if amount>1e-7:
-#                m=MOLECULES[i].copy()
-#                density=comp_density.get(i,m.standard_density)
-#                volume=mol2kg(amount,m.mass)/density 
-#                pure=PureSubstance(m,amount=amount,volume=volume,temp=temp)
-#                self.composition[i]=pure
-#        self.set_temp(temp)
-#        self.set_residual_volume()
-#        self.property_update()
+    def chemical_reaction(self,Δt,t0=0):
+        'Δt(sec): a collection of some kind'
+        heat,Temp,comp=self._reaction_process(Δt,t0)
+        heat=float(heat.iloc[-1])
+        temp=float(Temp.iloc[-1])-273.15
+        comp=comp.iloc[:,-1]
+
+        comp_density={i:j.density for i,j in self.composition.items()}
+        self.composition={}
+        for i,j in comp.items():
+            amount=j*self.volume*1000
+            if amount>1e-7:
+                m=MOLECULES[i].copy()
+                density=comp_density.get(i,m.standard_density)
+                volume=mol2kg(amount,m.mass)/density
+                pure=PureSubstance(m,amount=amount,volume=volume,temp=temp)
+                self.composition[i]=pure
+        self.set_temp(temp)
+        self.set_residual_volume()
+        self.property_update()
 
             
 
@@ -345,15 +344,15 @@ a.materia_exchange([x,z])
 
 print(a.composition)
 print(a.mass)
-t=[0.01]
+t=(0.01,)
 
-y=a._reaction_process(t)
-#heat=float(heat.iloc[-1])
-#temp=float(Temp.iloc[-1])-273.15
-#comp=comp.iloc[:,-1]
-#print(comp)
-#print(comp*a.volume)
-#
-#a.chemical_reaction(t)
-#print(a.mass)
-#a.composition
+heat,Temp,comp=a._reaction_process(t)
+heat=float(heat.iloc[-1])
+temp=float(Temp.iloc[-1])-273.15
+comp=comp.iloc[:,-1]
+print(comp)
+print(comp*a.volume)
+
+a.chemical_reaction(t)
+print(a.mass)
+a.composition

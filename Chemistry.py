@@ -196,9 +196,9 @@ class ChemicalReaction:
         v = k([A]*[B])**2
         '''
         k=self.rate_constant(Temp)
-        v=k
+        v=np.float64(k)
         for i,j in self.reactant.items():
-            v*=env.get(i,0)**2
+            v=v*np.float64(env.get(i,0))**2
         return v # mol/(L*s)
 
     def __repr__(self):
