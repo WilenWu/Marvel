@@ -79,7 +79,7 @@ class Molecule(Fermion):
                 sub_atoms = split_formula(key)
                 for key in list(sub_atoms):
                     atoms_dict[key] = atoms_dict.get(key, 0) + sub_atoms[key]*value
-        
+
         atoms=[ATOMS[i].copy() for i in atoms_dict.keys()]
         return atoms_dict,atoms
 
@@ -135,7 +135,6 @@ class Ion(Molecule):
         return "Ion({})".format(self.formula)
 
 
-
 MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
 antiMOLECULES=MOLECULE_TABLE.index.to_series().map(lambda x:Molecule(x,anti=True))
 #----------------Chemical_reaction
@@ -188,7 +187,7 @@ class ChemicalReaction:
         R = constants.gas_constant/1000 # kJ/(mol*K)
         A,Ea=self.A,self.Ea #kJ/mol
         return A*np.exp(-Ea/(R*Temp))
-    
+
     def rate_equation(self,Temp,env):
         '''
         env(dict): reactant concentration, float(mol/L)

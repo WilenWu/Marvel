@@ -7,13 +7,15 @@ from Marvel.Physics import *
 from Marvel.Chemistry import *
 
 # -------------------------------Pure Substance
-def kg2mol(kg,relative_molecular_mass):
+def kg2mol(kg,relative_molecular_mass,error=8):
     mol=kg / (relative_molecular_mass * constants.atomic_mass * constants.Avogadro)
-    return mol
+    n=0 if mol==0 else np.array(-np.log10(mol)+error,dtype=np.int)
+    return np.round(mol,n)
 
-def mol2kg(mol,relative_molecular_mass):
+def mol2kg(mol,relative_molecular_mass,error=8):
     kg=relative_molecular_mass * constants.atomic_mass * constants.Avogadro * mol
-    return kg
+    n=0 if kg==0 else np.array(-np.log10(kg)+error,dtype=np.int)
+    return np.round(kg,n)
 
 class PureSubstance(Fermion):
 
@@ -358,4 +360,4 @@ t=(0.05,)
 
 a.chemical_reaction(t,t0=0.02)
 print(a.mass)
-a.composition
+print(a.composition)
