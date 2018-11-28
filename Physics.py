@@ -166,7 +166,6 @@ class Fermion:
         pass
     
 class Boson:
-    spin=1
     def copy(self):
         return deepcopy(self)
     def physical_law(self,law):
@@ -226,6 +225,7 @@ class Neutron(Fermion):
 
 class Photon(Boson):
     def __init__(self,frequency):
+        self.spin = 1
         self.frequency=frequency
         self.c=constants.c
         self.wavelength=self.c/self.frequency

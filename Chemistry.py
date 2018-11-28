@@ -46,21 +46,17 @@ class Molecule(Fermion):
         '''
         self.formula=formula
         self.isomeride=isomeride
-        self.name=MOLECULE_TABLE.loc[self.formula,self.isomeride].loc['name']
-        self.standard_density=MOLECULE_TABLE.loc[self.formula,self.isomeride].loc['standard density']
-        self.SHC=MOLECULE_TABLE.loc[self.formula,self.isomeride].loc['specific_heat_capacity kJ/(kg*K)']
+        self.name=get_property('name')
+        self.standard_density=get_property('standard density')
+        self.SHC=get_property('specific_heat_capacity kJ/(kg*K)')
         self.atoms_dict,self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge()
         self.chemical_bonds,self.bonds_energy=self.get_bonds_energy()  #kJ/mol
-        self.structure='''
-        [    O   CH2OH]
-     HO_|__ / \ /     |
-        [  |   |      ]n
-           /\ / \
-         HO  |   OH
-             OH
-        '''
+
+    def get_property(self,property):
+        'get properties'
+        return MOLECULE_TABLE.loc[self.formula,self.isomeride].loc[property]
 
     @staticmethod
     def get_atoms(formula):

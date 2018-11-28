@@ -26,8 +26,10 @@ CHEMICAL_BOND=CHEMICAL_BOND.append(__CB.dropna()).drop_duplicates()
 CHEMICAL_BOND=pd.Series(CHEMICAL_BOND['energy(KJ/mol)'].values,index=CHEMICAL_BOND['bond'])
 
 MOLECULE_TABLE=pd.read_excel(Init,sheet_name='molecule')
-MOLECULE_TABLE.loc[:,['bond','ionization']]=MOLECULE_TABLE.loc[:,['bond','ionization']].applymap(eval)
 MOLECULE_TABLE.replace('Inf', inf, inplace=True)
+MOLECULE_TABLE.fillna('None', inplace=True)
+MOLECULE_TABLE.loc[:,['bond','ionization']]=MOLECULE_TABLE.loc[:,['bond','ionization']].applymap(eval)
+
 MOLECULE_TABLE.set_index(keys=['formula','isomeride'], inplace=True)
 
 
