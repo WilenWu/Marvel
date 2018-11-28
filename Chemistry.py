@@ -40,18 +40,27 @@ antiATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron'],anti=True)
 
 #--------------------molecule
 class Molecule(Fermion):
-    def __init__(self,formula,anti=False):
+    def __init__(self,formula,isomeride='O',anti=False):
         '''
         :param formula: str
         '''
         self.formula=formula
-        self.name=MOLECULE_TABLE['name'].get(self.formula,None)
-        self.standard_density=MOLECULE_TABLE['standard density'].get(self.formula,None)
-        self.SHC=MOLECULE_TABLE['specific_heat_capacity kJ/(kg*K)'].get(self.formula,None)
+        self.isomeride=isomeride
+        self.name=MOLECULE_TABLE.loc[self.formula,self.isomeride].loc['name']
+        self.standard_density=MOLECULE_TABLE.loc[self.formula,self.isomeride].loc['standard density']
+        self.SHC=MOLECULE_TABLE.loc[self.formula,self.isomeride].loc['specific_heat_capacity kJ/(kg*K)']
         self.atoms_dict,self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge()
         self.chemical_bonds,self.bonds_energy=self.get_bonds_energy()  #kJ/mol
+        self.structure='''
+        [    O   CH2OH]
+     HO_|__ / \ /     |
+        [  |   |      ]n
+           /\ / \
+         HO  |   OH
+             OH
+        '''
 
     @staticmethod
     def get_atoms(formula):
@@ -134,9 +143,7 @@ class Ion(Molecule):
     def __repr__(self):
         return "Ion({})".format(self.formula)
 
-
-MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
-antiMOLECULES=MOLECULE_TABLE.index.to_series().map(lambda x:Molecule(x,anti=True))
+MOLECULES=MOLECULE_TABLE.index.to_frame().apply(lambda x:Molecule(x['formula'],x['isomeride']),axis=1)
 #----------------Chemical_reaction
 class ChemicalReaction:
     def __init__(self,equation):
