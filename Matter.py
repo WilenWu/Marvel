@@ -12,7 +12,7 @@ def kg2mol(kg,relative_molecular_mass,error=8):
     n=0 if mol==0 else np.array(-np.log10(mol)+error,dtype=np.int)
     return np.round(mol,n)
 
-def mol2kg(mol,relative_molecular_mass,error=8):
+def mol2kg(mol,relative_molecular_mass,error=6):
     kg=relative_molecular_mass * constants.atomic_mass * constants.Avogadro * mol
     n=0 if kg==0 else np.array(-np.log10(kg)+error,dtype=np.int)
     return np.round(kg,n)
@@ -30,6 +30,7 @@ class PureSubstance(Fermion):
         self.name=self.molecule.name
         self.anti=self.molecule.anti
         self.molecular_formula=self.molecule.formula
+        self.molecular_ID = self.molecule.ID
         self.relative_molecular_mass=self.molecule.mass
 
         self.set_mass_charge(mass,amount)
@@ -69,7 +70,7 @@ class PureSubstance(Fermion):
 
     def physical_property(self,property):
         'get physical properties'
-        return MOLECULE_TABLE[property].get(self.molecular_formula,None)
+        return MOLECULE_TABLE[property].get(self.molecular_ID,None)
 
     def get_state(self):
         '''There are four states of matter: solid,liquid and gas'''
@@ -91,7 +92,7 @@ class PureSubstance(Fermion):
         self.state=self.get_state()  # phase transition(相变)
 
     def materia_exchange(self,other):
-        if self.molecular_formula==other.molecular_formula:
+        if self.molecular_ID==other.molecular_ID:
             temp = ThermodynamicLaw.thermal_equilibrium([self,other])
             self.set_mass_charge(self.mass+other.mass)
             self.volume=self.volume+other.volume
@@ -99,7 +100,7 @@ class PureSubstance(Fermion):
 
     def solubility(self,solvent):
         '溶解'
-        if solvent.molecular_formula=='H2O':
+        if solvent.molecular_ID=='H2O':
             s=self.solubility_H2O/100*solvent.mass
             mass=self.mass if s>=self.mass else s
             return mass #kg
@@ -122,12 +123,13 @@ class PureSubstance(Fermion):
     def __repr__(self):
         '显示单质或化合物'
         name='Elementary Substance' if len(self.molecule.atoms)==1 else 'Compound'
-        return '{}({}({}),{:.4f}kg,{:.4f}m3,{:.2f}℃)'\
-        .format(name,self.molecular_formula,self.state[0],self.mass,self.volume,self.degree_Celsius)
+        formula=self.molecular_ID+'('+self.state[0]+')'
+        return '{},{},{:.4f}kg,{:.4f}m3,{:.2f}℃'\
+        .format(formula,name,self.mass,self.volume,self.degree_Celsius)
 
 
-def standard_pureSubstance(molecular_formula,mass=None,amount=None,temp=15):
-    m=MOLECULES[molecular_formula].copy()
+def standard_pureSubstance(molecular_ID,mass=None,amount=None,temp=15):
+    m=MOLECULES[molecular_ID].copy()
     density=m.standard_density
     if mass is not None:
         volume=mass/density
@@ -142,7 +144,7 @@ class Mixture(Fermion):
         '''
         composition: tuple or list of PureSubstance
         '''
-        self.composition={i.molecular_formula:i for i in composition}
+        self.composition={i.molecular_ID:i for i in composition}
         self.volume=volume  #混合体积
         self.set_residual_volume()
         self.property_update()
@@ -234,10 +236,10 @@ class Mixture(Fermion):
 
     def materia_exchange(self,list_of_PureSubstance):
         for i in list_of_PureSubstance:
-            if i.molecular_formula in self.composition.keys():
-                self.composition[i.molecular_formula].materia_exchange(i)
+            if i.molecular_ID in self.composition.keys():
+                self.composition[i.molecular_ID].materia_exchange(i)
             else:
-                self.composition[i.molecular_formula]=i
+                self.composition[i.molecular_ID]=i
 
         self.set_residual_volume()
         self.property_update()
@@ -345,19 +347,19 @@ class Matter(Mixture):
         self.property_update()
 
 # debug
-from numpy.random import randint
-X=[]
-for i in ['H2','O2','H2O','NH3','CaO','C']:
-    X.append(standard_pureSubstance(i,randint(1,5)))
-
-a=Matter(0.1,X)
-a.heat_transfer(5000)
-a.materia_exchange(X[:3:1])
-
-print(a.composition)
-print(a.mass)
-t=(0.05,)
-
-a.chemical_reaction(t,t0=0.02)
-print(a.mass)
-print(a.composition)
+# from numpy.random import randint
+# X=[]
+# for i in ['H2','O2','H2O','NH3','CaO','C']:
+#     X.append(standard_pureSubstance(i,randint(1,5)))
+#
+# a=Matter(0.1,X)
+# a.heat_transfer(5000)
+# a.materia_exchange(X[:3:1])
+#
+# print(a.composition)
+# print(a.mass)
+# t=(0.05,)
+#
+# a.chemical_reaction(t,t0=0.02)
+# print(a.mass)
+# print(a.composition)

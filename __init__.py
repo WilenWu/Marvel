@@ -9,7 +9,7 @@ Init='\\'.join([dirname,'Init.xlsx'])
 
 # periodic_table
 PERIODIC_TABLE=pd.read_excel(Init,sheet_name='periodic_table')
-PERIODIC_TABLE.set_index(keys='element', inplace=True)
+PERIODIC_TABLE.set_index(keys='atomic number', inplace=True)
 
 # chemical bond: ionic bond,covalent bond and metallic bond
 CHEMICAL_BOND=pd.read_excel(Init,sheet_name='chemical_bond')
@@ -30,7 +30,7 @@ MOLECULE_TABLE.replace('Inf', inf, inplace=True)
 MOLECULE_TABLE.fillna('None', inplace=True)
 MOLECULE_TABLE.loc[:,['bond','ionization']]=MOLECULE_TABLE.loc[:,['bond','ionization']].applymap(eval)
 
-MOLECULE_TABLE.set_index(keys=['formula','isomeride'], inplace=True)
+MOLECULE_TABLE.set_index(keys='ID', inplace=True)
 
 
 #list of reactions

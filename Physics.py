@@ -8,6 +8,7 @@ from sympy import symbols
 from math import pi,e,exp,inf
 from copy import deepcopy
 from itertools import combinations,permutations,product
+import matplotlib.pyplot as plt
 
 # System International(SI)
 class Units:
@@ -241,6 +242,22 @@ class Photon(Boson):
     def __repr__(self):
         return 'Photon(ν={})'.format(self.frequency)
 
+
+def annihilate(self,others):
+    '湮灭'
+    if (not self.anti)==others.anti:
+        Δm=math.abs(self.mass-others.mass)
+        E=2*Δm*constants.c**2
+        return 2*Δm,E
+
+def nuclear_reaction(self):
+    'fission and fusion(裂变和聚变)'
+    pass
+
+def radioactive_decay(N0,half_life,t):
+    N=No*(1/2)**(t/half_life)
+    return N
+
 class Field:
     pass
 
@@ -355,10 +372,3 @@ class ThermodynamicLaw(PhysicalLaw):
             G=constants.gravity_constant
             return -G*M*mass/r
 
-def annihilate(self,others):
-    '湮灭'
-    if (not self.anti)==others.anti:
-        Δm=math.abs(self.mass-others.mass)
-        E=2*Δm*constants.c**2
-        return 2*Δm,E
-    

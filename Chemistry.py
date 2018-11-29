@@ -4,6 +4,8 @@ import re
 from scipy import constants
 from Marvel import PERIODIC_TABLE,CHEMICAL_BOND,MOLECULE_TABLE,CHEMICAL_REACTION
 from Marvel.Physics import *
+from Marvel.Geometry import draw_circle
+import matplotlib.pyplot as plt
 
 #----------------atom
 class Atom(Fermion):
@@ -21,42 +23,76 @@ class Atom(Fermion):
 
         self.nucleus_mass=proton.mass*p + neutron.mass*n
         self.mass = self.nucleus_mass + electron.mass*e
-
         self.nuclear_charge=proton.charge*p #核电荷数
         self.charge = proton.charge*p + electron.charge*e
-
         self.anti=anti
 
-    def nuclear_reaction(self):
-        'fission and fusion(裂变和聚变)'
-        pass
+        self.atomic_number=p
+        self.electron_shells=self.electronic_configuration()
+        self.outermost_electron=self.electron_shells[-1]        
+        self.element=PERIODIC_TABLE.loc[self.atomic_number,'element']
+        self.period=PERIODIC_TABLE.loc[self.atomic_number,'period']
+        self.group=PERIODIC_TABLE.loc[self.atomic_number,'group']
+
+    def electronic_configuration(self):
+        shells=PERIODIC_TABLE.loc[self.atomic_number,'electron shells']
+        shells=[int(i) for i in str(shells).split(',')]
+        return shells
+        
+    def draw(self):
+        n=len(self.electron_shells)
+        Z=self.protons
+        A=self.protons+self.neutrons
+        inner='-'+str(Z) if self.anti else '+'+str(Z)
+        formula='$^\{{0}\}_\{{1}\}{2}$'.format(Z,A,self.element)
+        
+        plt.text(-2.5,-0.2,inner,bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
+        draw_circle([0,0],1)
+        plt.text(-0.7,-0.2,'+18',bbox=dict(alpha=0),fontsize=25)
+        draw_circle([-1,0],3,-np.pi/6,np.pi/6)
+        plt.text(1.8,-0.2,'2',bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
+        draw_circle([-1,0],4,-np.pi/6,np.pi/6)
+        plt.text(2.8,-0.2,'8',bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
+        draw_circle([-1,0],5,-np.pi/6,np.pi/6)
+        plt.text(3.8,-0.2,'8',bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
+        plt.xlim(-3,2+n)
+        plt.ylim(-1-n,1+n)
+        plt.xticks([])
+        plt.yticks([])
+        plt.show()
 
     def __repr__(self):
         return 'Atom({p},{n})'.format(p=self.protons,n=self.neutrons)
 
 
-ATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron']),axis=1)
-antiATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['proton'],x['neutron'],anti=True),axis=1)
+ATOMS=PERIODIC_TABLE.set_index(keys='element').apply(lambda x:Atom(x['proton'],x['neutron']),axis=1)
+antiATOMS=PERIODIC_TABLE.set_index(keys='element').apply(lambda x:Atom(x['proton'],x['neutron'],anti=True),axis=1)
 
 #--------------------molecule
 class Molecule(Fermion):
-    def __init__(self,formula,isomeride='O',anti=False):
+    def __init__(self,ID,anti=False):
         '''
         :param formula: str
         '''
-        self.formula=formula
-        self.isomeride=isomeride
-        self.name=get_property('name')
-        self.standard_density=get_property('standard density')
-        self.SHC=get_property('specific_heat_capacity kJ/(kg*K)')
+        self.ID=ID
+        self.formula,self.isomeride=self.extract_formula()
+        self.name=self.get_property('name')
+        self.standard_density=self.get_property('standard density')
+        self.SHC=self.get_property('specific_heat_capacity kJ/(kg*K)')
         self.atoms_dict,self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge()
         self.chemical_bonds,self.bonds_energy=self.get_bonds_energy()  #kJ/mol
 
+    def extract_formula(self):
+        if self.ID.find('#')>=0:
+            return self.ID.split('#')
+        else:
+            return self.ID,None
+
     def get_property(self,property):
         'get properties'
-        return MOLECULE_TABLE.loc[self.formula,self.isomeride].loc[property]
+        return MOLECULE_TABLE.loc[self.ID,property]
 
     @staticmethod
     def get_atoms(formula):
@@ -108,7 +144,7 @@ class Molecule(Fermion):
         return mass+ionic_mass,charge+ionic_charge
 
     def get_bonds_energy(self):
-        bonds=MOLECULE_TABLE.loc[self.formula,'bond']
+        bonds=MOLECULE_TABLE.loc[self.ID,'bond']
         if bonds is None:
             return None,None
         bonds_energy=0
@@ -139,7 +175,7 @@ class Ion(Molecule):
     def __repr__(self):
         return "Ion({})".format(self.formula)
 
-MOLECULES=MOLECULE_TABLE.index.to_frame().apply(lambda x:Molecule(x['formula'],x['isomeride']),axis=1)
+MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
 #----------------Chemical_reaction
 class ChemicalReaction:
     def __init__(self,equation):
