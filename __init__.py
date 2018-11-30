@@ -9,7 +9,7 @@ Init='\\'.join([dirname,'Init.xlsx'])
 
 # periodic_table
 PERIODIC_TABLE=pd.read_excel(Init,sheet_name='periodic_table')
-PERIODIC_TABLE.set_index(keys='atomic number', inplace=True)
+PERIODIC_TABLE.set_index(keys='element', inplace=True)
 
 # chemical bond: ionic bond,covalent bond and metallic bond
 CHEMICAL_BOND=pd.read_excel(Init,sheet_name='chemical_bond')

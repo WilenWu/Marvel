@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 #----------------atom
 class Atom(Fermion):
-    def __init__(self,p,n,e=None,anti=False):
+    def __init__(self,p,n,e=None,symbol=None,anti=False):
         e = p if e is None else e
         self.extra_nuclear_electron=e #核外电子数
 
@@ -27,26 +27,34 @@ class Atom(Fermion):
         self.charge = proton.charge*p + electron.charge*e
         self.anti=anti
 
+        self.element=symbol
         self.atomic_number=p
-        self.electron_shells=self.electronic_configuration()
-        self.outermost_electron=self.electron_shells[-1]        
-        self.element=PERIODIC_TABLE.loc[self.atomic_number,'element']
-        self.period=PERIODIC_TABLE.loc[self.atomic_number,'period']
-        self.group=PERIODIC_TABLE.loc[self.atomic_number,'group']
+        self.electron_shells,self.electron_subshells=self.electronic_configuration()
+        self.outermost_electron=list(self.electron_shells.values())[-1]
+        self.name=PERIODIC_TABLE.loc[self.element,'name']
+        self.period=PERIODIC_TABLE.loc[self.element,'period']
+        self.group=PERIODIC_TABLE.loc[self.element,'group']
 
     def electronic_configuration(self):
-        shells=PERIODIC_TABLE.loc[self.atomic_number,'electron shells']
-        shells=[int(i) for i in str(shells).split(',')]
-        return shells
+        subshells=PERIODIC_TABLE.loc[self.element,'1s':'7f'].dropna().astype(int)
+        g = subshells.index.map(lambda x: x[0])
+        shells=subshells.groupby(g).sum()
+        return shells.to_dict(),subshells.to_dict()
         
     def draw(self):
         n=len(self.electron_shells)
+        subshells=[i+str(j).join(['^{','}']) for i,j in self.electron_subshells.items()]
+        subshells='$'+''.join(subshells)+'$'
+
         Z=self.protons
         A=self.protons+self.neutrons
         inner='-'+str(Z) if self.anti else '+'+str(Z)
-        formula='$^\{{0}\}_\{{1}\}{2}$'.format(Z,A,self.element)
+        formula='$'+str(Z).join(['^{','}'])+str(A).join(['_{','}'])+str(self.element)+'$'
         
         plt.text(-2.5,-0.2,inner,bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
+
+
+
         draw_circle([0,0],1)
         plt.text(-0.7,-0.2,'+18',bbox=dict(alpha=0),fontsize=25)
         draw_circle([-1,0],3,-np.pi/6,np.pi/6)
@@ -65,8 +73,7 @@ class Atom(Fermion):
         return 'Atom({p},{n})'.format(p=self.protons,n=self.neutrons)
 
 
-ATOMS=PERIODIC_TABLE.set_index(keys='element').apply(lambda x:Atom(x['proton'],x['neutron']),axis=1)
-antiATOMS=PERIODIC_TABLE.set_index(keys='element').apply(lambda x:Atom(x['proton'],x['neutron'],anti=True),axis=1)
+ATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['atomic number'],x['neutron'],symbol=x.name),axis=1)
 
 #--------------------molecule
 class Molecule(Fermion):
