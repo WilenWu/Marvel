@@ -42,29 +42,27 @@ class Atom(Fermion):
         return shells.to_dict(),subshells.to_dict()
         
     def draw(self):
-        n=len(self.electron_shells)
-        subshells=[i+str(j).join(['^{','}']) for i,j in self.electron_subshells.items()]
-        subshells='$'+''.join(subshells)+'$'
+        n = len(self.electron_shells)
+        subshells = [i + str(j).join(['^{', '}']) for i, j in self.electron_subshells.items()]
+        subshells = '$' + ''.join(subshells) + '$'
 
-        Z=self.protons
-        A=self.protons+self.neutrons
-        inner='-'+str(Z) if self.anti else '+'+str(Z)
-        formula='$'+str(Z).join(['^{','}'])+str(A).join(['_{','}'])+str(self.element)+'$'
-        
-        plt.text(-2.5,-0.2,inner,bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
+        Z = self.protons
+        A = self.protons + self.neutrons
+        inner = '-' + str(Z) if self.anti else '+' + str(Z)
+        formula = '$' + str(A).join(['^{', '}']) + str(Z).join(['_{', '}']) + str(self.element) + '$'
 
+        plt.figure()
+        plt.text(-3, -0.2, formula, bbox=dict(facecolor='white', edgecolor='white'), fontsize=20)
+        plt.text(-3, -4, subshells, bbox=dict(facecolor='white', edgecolor='white'), fontsize=10)
+        plt.text(-0.7, -0.2, inner, bbox=dict(alpha=0), fontsize=20)
+        draw_circle([0, 0], 1)
 
+        for i, j in self.electron_shells.items():
+            draw_circle([-1, 0], 2 + int(i), -np.pi / 6, np.pi / 6)
+            plt.text(0.8 + int(i), -0.2, str(j), bbox=dict(facecolor='white', edgecolor='white'), fontsize=20)
 
-        draw_circle([0,0],1)
-        plt.text(-0.7,-0.2,'+18',bbox=dict(alpha=0),fontsize=25)
-        draw_circle([-1,0],3,-np.pi/6,np.pi/6)
-        plt.text(1.8,-0.2,'2',bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
-        draw_circle([-1,0],4,-np.pi/6,np.pi/6)
-        plt.text(2.8,-0.2,'8',bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
-        draw_circle([-1,0],5,-np.pi/6,np.pi/6)
-        plt.text(3.8,-0.2,'8',bbox=dict(facecolor='white',edgecolor='white'),fontsize=25)
-        plt.xlim(-3,2+n)
-        plt.ylim(-1-n,1+n)
+        plt.xlim(-3.5, 2 + n)
+        plt.ylim(-1 - n, 1 + n)
         plt.xticks([])
         plt.yticks([])
         plt.show()
