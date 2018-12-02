@@ -2,9 +2,10 @@
 import numpy as np
 import re
 from scipy import constants
+from sympy import Symbol
 from Marvel import PERIODIC_TABLE,CHEMICAL_BOND,MOLECULE_TABLE,CHEMICAL_REACTION
 from Marvel.Physics import *
-from Marvel.Geometry import draw_circle
+from Marvel.Geometry import *
 import matplotlib.pyplot as plt
 
 #----------------atom
@@ -51,20 +52,20 @@ class Atom(Fermion):
         inner = '-' + str(Z) if self.anti else '+' + str(Z)
         formula = '$' + str(A).join(['^{', '}']) + str(Z).join(['_{', '}']) + str(self.element) + '$'
 
-        plt.figure()
-        plt.text(-3, -0.2, formula, bbox=dict(facecolor='white', edgecolor='white'), fontsize=20)
-        plt.text(-3, -4, subshells, bbox=dict(facecolor='white', edgecolor='white'), fontsize=10)
-        plt.text(-0.7, -0.2, inner, bbox=dict(alpha=0), fontsize=20)
-        draw_circle([0, 0], 1)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.text(-3, -0.2, formula, bbox=dict(facecolor='white', edgecolor='white'), fontsize=20)
+        ax.text(-3, -4, subshells, bbox=dict(facecolor='white', edgecolor='white'), fontsize=10)
+        ax.text(-0.7, -0.2, inner, bbox=dict(alpha=0), fontsize=20)
+        draw_circle([0, 0], 1,axes=ax,linewidth=3)
 
         for i, j in self.electron_shells.items():
-            draw_circle([-1, 0], 2 + int(i), -np.pi / 6, np.pi / 6)
-            plt.text(0.8 + int(i), -0.2, str(j), bbox=dict(facecolor='white', edgecolor='white'), fontsize=20)
+            draw_circle([-1, 0], 2 + int(i), -np.pi / 6, np.pi / 6,axes=ax,linewidth=3)
+            ax.text(0.8 + int(i), -0.2, str(j), bbox=dict(facecolor='white', edgecolor='white'), fontsize=20)
 
-        plt.xlim(-3.5, 2 + n)
-        plt.ylim(-1 - n, 1 + n)
-        plt.xticks([])
-        plt.yticks([])
+        ax.set_axis_off()
+        ax.set_xlim(-3.5, 2 + n)
+        ax.set_ylim(-1 - n, 1 + n)
         plt.show()
 
     def __repr__(self):
@@ -165,12 +166,14 @@ class Ion(Molecule):
         '''
         :param formula: str
         '''
-        self.formula=formula
+        self.ID=formula
         self.name=name
+        self.formula,self.isomeride=self.extract_formula()
         self.ionic_electron=self.__ionic_electron()
         self.atoms_dict_dict,self.atoms=self.get_atoms(self.formula)
         self.anti=anti
         self.mass,self.charge=self.get_mass_charge(self.ionic_electron)
+
     def __ionic_electron(self):
         charge=re.findall('\^\d+[+-]|[+-]',self.formula)[0].replace('^','')
         sign=-1 if charge[-1]=='+' else 1
@@ -181,6 +184,133 @@ class Ion(Molecule):
         return "Ion({})".format(self.formula)
 
 MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
+
+#-----------------MacroMolecule(大分子)
+
+class MacroMolecule(Molecule):
+    pass
+
+
+class PolysacCharideMolecule(Molecule):
+    '''Carbohydrate(糖类)
+    Monosaccharide(单糖,C6H12O6): glucose(葡萄糖),Fructose(果糖),Galactose(半乳糖),ribose(核糖,C5H12O5)
+    Disaccharide(二糖,C12H22O11): sugar(蔗糖),maltose(麦芽糖)
+    Polysaccharide(多糖,(C6H10O5)n): starch(淀粉),cellulose(纤维素,50000-2500000)
+    '''
+    def __init__(self, n=None, type='starch', anti=False):
+        '''多糖
+        :param n: int
+        :param type: starch(s,淀粉),cellulose(c,纤维素,50000-2500000)
+        isomeride: s,c
+        :return: PolysacCharide
+        '''
+        self.name=type
+        self.n=n if n else Symbol('n')
+        self.general_formula = '(C6H10O5)n'+ '#' + self.name[0]
+        self.ID=self.general_formula.replace('n',self.n) if n else self.general_formula
+        self.formula,self.isomeride=self.extract_formula()
+
+        self.standard_density=self.get_property('standard density')
+        self.SHC=self.get_property('specific_heat_capacity kJ/(kg*K)')
+
+        self.atoms_dict, self.atoms = self.get_atoms(self.formula)
+        self.atoms_dict={i:j*self.n for i,j in self.atoms_dict.items()}
+        self.anti = anti
+        self.mass, self.charge = self.get_mass_charge()
+        self.chemical_bonds, self.bonds_energy = self.get_bonds_energy()  # kJ/mol
+
+    def get_bonds_energy(self):
+        bonds=MOLECULE_TABLE.loc[self.ID,'bond']
+        bonds={i:re.search('\d+',str(j)).group() for i,j in bonds.items()}
+        bonds={i:float(j)*self.n for i,j in bonds.items()}
+        if bonds is None:
+            return None,None
+        bonds_energy=0
+        for i,j in bonds.items():
+            bonds_energy+=CHEMICAL_BOND[i]*j
+        return bonds,bonds_energy
+
+    @classmethod
+    def draw_glucose(cls, center=[0, 0], axes=plt, dehydration=False):
+        ax = axes
+        x, y = draw_polygon(center, r=1, n=6, axes=ax, linewidth=3)
+        for i, j in zip(x[-1:-6:-1], y[-1:-6:-1]):
+            ax.plot([i, i], [j - 0.5, j + 0.5])
+        ax.plot([x[0], x[0] + 1], [y[0] + 0.5, y[0] + 0.5])
+        ax.plot([x[3], x[3] - 1.5], [y[3] + 0.5, y[3] + 0.5])
+        ax.text(x[1], y[1], 'O', fontsize=25, ha='center', va='center',
+                bbox=dict(boxstyle='circle,pad=0', fc='w', ec='w'))
+        ax.text(x[3] - 0.5, y[3] + 0.5, 'O', fontsize=25, ha='center', va='center',
+                bbox=dict(boxstyle='circle,pad=0', fc='w', ec='w'))
+        sx = [x[2] - 0.2, x[4] - 0.2, x[5] - 0.2]
+        sy = [y[2] + 0.5, y[4] + 0.5, y[5] - 0.7]
+        s = ['CH$_2$OH', 'OH', 'OH']
+        for i, j, k in zip(sx, sy, s):
+            ax.text(i, j, k, fontsize=25, bbox=dict(boxstyle='square,pad=0', fc='w', ec='w'))
+        if not dehydration:
+            ax.text(x[0] + 0.5, y[0] + 0.5, 'OH', fontsize=25, va='center',
+                    bbox=dict(boxstyle='square', fc='w', ec='w'))
+            ax.text(x[3] - 1.5, y[3] + 0.5, 'H', fontsize=25, va='center', bbox=dict(boxstyle='square', fc='w', ec='w'))
+        return x, y
+
+    @classmethod
+    def draw_structure(cls, n=None):
+        m = n - 1 if n else 'n-1'
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        x1, y1 = cls.draw_glucose(axes=ax, dehydration=True)
+        x2, y2 = cls.draw_glucose(center=[4.5, 0], axes=ax, dehydration=True)
+        ax.plot([x1[0] + 0.5, x1[0] + 0.6, x1[0] + 0.6, x1[0] + 0.5], [y1[0] + 1, y1[0] + 1, y1[0] - 1, y1[0] - 1],
+                linewidth=2, color='black')
+        ax.plot([x1[3] - 0.9, x1[3] - 1, x1[3] - 1, x1[3] - 0.9], [y1[3] + 1, y1[3] + 1, y1[3] - 1, y1[3] - 1],
+                linewidth=2, color='black')
+        ax.text(x1[0] + 0.6, y1[0] - 1, m, fontsize=25)
+        ax.text(x1[3] - 2, y1[3] + 0.5, 'H', va='center', fontsize=25,
+                bbox=dict(boxstyle='square,pad=0', fc='w', ec='w'))
+        ax.text(x2[0] + 1, y2[0] + 0.5, 'OH', va='center', fontsize=25,
+                bbox=dict(boxstyle='square,pad=0', fc='w', ec='w'))
+        ax.set_axis_off()
+        plt.show()
+
+    def __repr__(self):
+        return "{0}: {1}".format(self.name.title(), self.formula)
+
+'''
+Protein(蛋白质)
+amino acid 氨基酸 20多种 amino(氨基,-NH2)+carboxyl(羧基,-COOH)+
+H2N-CHR-COOH 
+'''
+
+#氨基酸分子结构通式
+def AminoAcid():
+    fig=plt.figure()
+    ax=fig.add_subplot(111)
+    ax.plot([-2,2],[0,0])
+    ax.plot([0,0],[-1,1])
+    ax.plot([-1,-1],[0,-1])
+    ax.plot([0.95,0.95],[0,1])
+    ax.plot([1.05,1.05],[0,1])
+    x=[-2,-1,0,1,2, 0,1, -1,0]
+    y=[0,0,0,0,0, 1,1, -1,-1]
+    s=['H','N','C','C','OH', 'R','O', 'H','H']
+    for i,j,k in zip(x,y,s):
+        ax.text(i,j,k,fontsize=50,ha='center',va='center',bbox=dict(fc='w',ec='w'))
+    ax.set_axis_off()
+    plt.show()
+
+AminoAcid()
+
+
+
+class ProteinMolecule(Molecule):
+    pass
+
+'''Lipid(脂质)
+Fat(,脂肪): glycerol(甘油) + fatty acids(脂肪酸)
+Phospholipid(磷脂)
+Sterol(固醇)
+'''
+
 #----------------Chemical_reaction
 class ChemicalReaction:
     def __init__(self,equation):

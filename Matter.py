@@ -128,8 +128,11 @@ class PureSubstance(Fermion):
         .format(formula,name,self.mass,self.volume,self.degree_Celsius)
 
 
-def standard_pureSubstance(molecular_ID,mass=None,amount=None,temp=15):
-    m=MOLECULES[molecular_ID].copy()
+def standard_pureSubstance(molecular_ID=None,mass=None,amount=None,temp=15,molecular=None):
+    if molecular_ID is None:
+        m=MOLECULES[molecular_ID].copy()
+    else:
+        m=molecular.copy()
     density=m.standard_density
     if mass is not None:
         volume=mass/density
