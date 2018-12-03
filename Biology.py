@@ -54,7 +54,8 @@ UNITS.load_unit('ATP', 30.54, kJ=1, mol=-1)
 # gene recombination基因重组
 # chromosome variations染色体变异 结构和数目
 
-
+#密码子
+#密码子，基因矩阵
 
 #-----------------有机分子(organic molecule)
 class Carbohydrate(Molecule):
