@@ -1,4 +1,4 @@
-# Marvel <img src="man/Stan Lee.jpg" width="20%" height="20%" align="right" />
+# Marvel <img src="man/Stan Lee.jpg" width="20%" align="right" />
 *Create Marvel Universe*
 
 
