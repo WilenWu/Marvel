@@ -32,6 +32,7 @@ class Atom(Fermion):
         self.atomic_number=p
         self.electron_shells,self.electron_subshells=self.electronic_configuration()
         self.outermost_electron=list(self.electron_shells.values())[-1]
+
         self.name=PERIODIC_TABLE.loc[self.element,'name']
         self.period=PERIODIC_TABLE.loc[self.element,'period']
         self.group=PERIODIC_TABLE.loc[self.element,'group']
@@ -73,6 +74,8 @@ class Atom(Fermion):
 
 
 ATOMS=PERIODIC_TABLE.apply(lambda x:Atom(x['atomic number'],x['neutron'],symbol=x.name),axis=1)
+
+
 
 #--------------------molecule
 class Molecule(Fermion):
@@ -158,6 +161,21 @@ class Molecule(Fermion):
             bonds_energy+=CHEMICAL_BOND[i]*j
         return bonds,bonds_energy
 
+    def is_compound(self):
+        return len(self.atoms_dict)>1
+
+    def elementary_substance_group(self):
+        if self.is_compound():
+            return 'compound'
+        elif self.atoms[0].outermost_electron<4:
+            return 'metal'
+        elif self.atoms[0].outermost_electron==7:
+            return 'halogen'
+        elif self.atoms[0].outermost_electron==8:
+            return 'noble gas'
+        else:
+            return 'non-metal'
+
     def __repr__(self):
         return "Molecule({})".format(self.formula)
 
@@ -185,6 +203,69 @@ class Ion(Molecule):
 
 MOLECULES=MOLECULE_TABLE.index.to_series().map(Molecule)
 
+#------------------------Enzymatic Reaction(酶促反应)
+class EnzymaticReaction(ChemicalReaction):
+
+    def __init__(self, equation):
+        self.equation = equation
+        self.reactant, self.product = self.get_stoichiometric_number()
+
+        self.enzyme = self.chemical_property('enzyme')
+        self.Km = self.chemical_property('Km(mmol/L)')
+        self.Kcat = self.chemical_property('Kcat(1/s)')
+        self.catalytic_efficiency = self.Kcat / self.Km
+
+        self.reaction_enthalpies = self.reaction_enthalpies()  # kJ/mol
+        self.ΔrHmΘ = self.reaction_enthalpies  # kJ/mol
+        self.reaction_heat = self.reaction_enthalpies  # kJ/mol
+        self.Qp = self.reaction_heat  # kJ/mol
+
+    def rate_equation(self, Temp, **concentration):
+        '''
+        molecules,atoms or ions : float(mol/L), cover enzyme(酶),etc
+        '''
+        c = concentration  # mol/L
+
+        enzyme = self.enzyme
+        relative_conc = [c.get(i, 0) / j for i, j in self.reactant.items()]  # 相对浓度
+        s = min(relative_conc)  # 底物浓度(mol/L)
+        e = c.get(enzyme, 0)  # 酶浓度(mol/L)
+
+        Km = self.Km  # mmol/L
+        Kcat = self.catalytic_efficiency * Km  # 1/s
+        Km = Km * 1000  # mol/L
+        Vmax = Kcat * e  # mol/(L*s)
+
+        v = Vmax * s / (Km + s)
+        return v
+
+#-----------------organic compound
+'''
+类别异构
+有机物之间具有以下的类别异构关系：
+1. 分子组成符合CnH2n(n≥3)的类别异构体: 烯烃和环烷烃;
+2. 分子组成符合CnH2n-2(n≥4)的类别异构体: 炔烃和二烯烃;
+3. 分子组成符合CnH2n+2O(n≥3)的类别异构体: 饱和一元醇和饱和醚;
+4. 分子组成符合CnH2nO(n≥3)的类别异构体: 饱和一元醛和饱和一元酮;
+5. 分子组成符合CnH2nO2(n≥2)的类别异构体: 饱和一元羧酸和饱和一元酯;
+6. 分子组成符合CnH2n-6O(n≥7)的类别异构体: 苯酚的同系物,芳香醇及芳香醚;
+如n=7,有以下五种: 邻甲苯酚,间甲苯酚,对甲苯酚;苯甲醇;苯甲醚.
+7. 分子组成符合CnH2n+1O2N(n≥2)的类别异构体: 氨基酸和硝基化合物
+结构特点编辑
+有机化合物：种类繁多、数目庞大（已知有3000多万种、且还在以每年数百万种的速度增加）。
+但组成元素少 有C、H、O、N 、P、 S、 X（卤素：F、Cl、Br、I ）等
+'''
+#alkyl group
+
+class AlkylMolecule(Molecule):
+    '烃'
+    def __init__(self,n,IHD=0,anti=False):
+        '''
+        :param formula: str
+        缺氢指数index of hydrogen deficiency (IHD)
+        '''
+        pass
+
 #-----------------MacroMolecule(大分子)
 
 class MacroMolecule(Molecule):
@@ -197,7 +278,7 @@ class PolysacCharideMolecule(Molecule):
     Disaccharide(二糖,C12H22O11): sugar(蔗糖),maltose(麦芽糖)
     Polysaccharide(多糖,(C6H10O5)n): starch(淀粉),cellulose(纤维素,50000-2500000)
     '''
-    def __init__(self, n=None, type='starch', anti=False):
+    def __init__(self, n, type='starch', anti=False):
         '''多糖
         :param n: int
         :param type: starch(s,淀粉),cellulose(c,纤维素,50000-2500000)
@@ -277,28 +358,39 @@ class PolysacCharideMolecule(Molecule):
 
 '''
 Protein(蛋白质)
-amino acid 氨基酸 20多种 amino(氨基,-NH2)+carboxyl(羧基,-COOH)+
-H2N-CHR-COOH 
+amino acid(氨基酸,R-CH(NH2)-COOH)=amino(氨基,-NH2)+carboxyl(羧基,-COOH)+radical group(基团,R)
 '''
 
-#氨基酸分子结构通式
-def AminoAcid():
-    fig=plt.figure()
-    ax=fig.add_subplot(111)
-    ax.plot([-2,2],[0,0])
-    ax.plot([0,0],[-1,1])
-    ax.plot([-1,-1],[0,-1])
-    ax.plot([0.95,0.95],[0,1])
-    ax.plot([1.05,1.05],[0,1])
-    x=[-2,-1,0,1,2, 0,1, -1,0]
-    y=[0,0,0,0,0, 1,1, -1,-1]
-    s=['H','N','C','C','OH', 'R','O', 'H','H']
-    for i,j,k in zip(x,y,s):
-        ax.text(i,j,k,fontsize=50,ha='center',va='center',bbox=dict(fc='w',ec='w'))
-    ax.set_axis_off()
-    plt.show()
+class AminoAcidMolecule(Molecule):
+    def __init__(self,abbreviation):
+        self.abbreviation=abbreviation
+        self.ID=self.get_property(self, formula)
+        Molecule.__init__(ID)
+        self.radical_group=self.formula.split('-')
+        self.codon=self.get_property(self, 'codon')
 
-AminoAcid()
+
+    def get_property(self,property):
+        'get physical properties'
+        return MOLECULE_TABLE[property].get(self.abbreviation,None)
+
+    def draw_structure(self):
+        fig=plt.figure()
+        ax=fig.add_subplot(111)
+        ax.plot([-2,2],[0,0])
+        ax.plot([0,0],[-1,1])
+        ax.plot([-1,-1],[0,-1])
+        ax.plot([0.95,0.95],[0,1])
+        ax.plot([1.05,1.05],[0,1])
+        x=[-2,-1,0,1,2, 0,1, -1,0]
+        y=[0,0,0,0,0, 1,1, -1,-1]
+        s=['H','N','C','C','OH', 'R','O', 'H','H']
+        for i,j,k in zip(x,y,s):
+            ax.text(i,j,k,fontsize=50,ha='center',va='center',bbox=dict(fc='w',ec='w'))
+        ax.set_axis_off()
+        plt.show()
+
+AMINO_ACID=AMINO_ACID.apply(lambda x:AminoAcidMolecule())
 
 
 
@@ -310,6 +402,7 @@ Fat(,脂肪): glycerol(甘油) + fatty acids(脂肪酸)
 Phospholipid(磷脂)
 Sterol(固醇)
 '''
+
 
 #----------------Chemical_reaction
 class ChemicalReaction:
@@ -378,3 +471,24 @@ class ChemicalReaction:
         return "ChemicalReaction({})".format(self.equation)
 
 CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(ChemicalReaction)
+
+
+
+
+
+class OrganicReaction(ChemicalReaction):
+    '有机物通用的反应'
+    def __init__(self,equation):
+        self.equation=equation
+        self.reactant,self.product=self.get_stoichiometric_number()
+
+        self.A=self.chemical_property('A')
+        self.Ea=self.chemical_property('Ea(kJ/mol)')#kJ/mol
+
+        self.reaction_enthalpies=self.reaction_enthalpies() #kJ/mol
+        self.ΔrHmΘ=self.reaction_enthalpies #kJ/mol
+        self.reaction_heat=self.reaction_enthalpies #kJ/mol
+        self.Qp=self.reaction_heat #kJ/mol
+
+
+
