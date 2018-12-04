@@ -42,7 +42,7 @@ class Atom(Fermion):
         g = subshells.index.map(lambda x: x[0])
         shells=subshells.groupby(g).sum()
         return shells.to_dict(),subshells.to_dict()
-        
+
     def draw(self):
         n = len(self.electron_shells)
         subshells = [i + str(j).join(['^{', '}']) for i, j in self.electron_subshells.items()]
@@ -377,6 +377,20 @@ class AminoAcidMolecule(Molecule):
     def draw_structure(self):
         fig=plt.figure()
         ax=fig.add_subplot(111)
+
+        xy=[(-2.5,-1.5),(-0.5,0.5),(0.5,-0.5)]
+        width=[2,1,2.5]
+        height=[2,1,2]
+        cm=['r','g','b']
+
+        for i,j,k,c in zip(xy,width,height,cm):
+            p=patches.Rectangle(i,j,k,fill=None,ec=c,linestyle='--')
+            ax.add_patch(p)
+
+        ax.text(-2,0.7,'Amino',fontsize=15,va='center')
+        ax.text(0,1.7,'R radical group',fontsize=15,ha='center',va='center')
+        ax.text(1,-0.7,'Carboxy',fontsize=15,va='center')
+
         ax.plot([-2,2],[0,0])
         ax.plot([0,0],[-1,1])
         ax.plot([-1,-1],[0,-1])
@@ -386,7 +400,7 @@ class AminoAcidMolecule(Molecule):
         y=[0,0,0,0,0, 1,1, -1,-1]
         s=['H','N','C','C','OH', 'R','O', 'H','H']
         for i,j,k in zip(x,y,s):
-            ax.text(i,j,k,fontsize=50,ha='center',va='center',bbox=dict(fc='w',ec='w'))
+            ax.text(i,j,k,fontsize=30,ha='center',va='center',bbox=dict(fc='w',ec='w'))
         ax.set_axis_off()
         plt.show()
 
@@ -478,17 +492,4 @@ CHEMICAL_REACTION=CHEMICAL_REACTION.index.to_series().map(ChemicalReaction)
 
 class OrganicReaction(ChemicalReaction):
     '有机物通用的反应'
-    def __init__(self,equation):
-        self.equation=equation
-        self.reactant,self.product=self.get_stoichiometric_number()
-
-        self.A=self.chemical_property('A')
-        self.Ea=self.chemical_property('Ea(kJ/mol)')#kJ/mol
-
-        self.reaction_enthalpies=self.reaction_enthalpies() #kJ/mol
-        self.ΔrHmΘ=self.reaction_enthalpies #kJ/mol
-        self.reaction_heat=self.reaction_enthalpies #kJ/mol
-        self.Qp=self.reaction_heat #kJ/mol
-
-
-
+    pass
